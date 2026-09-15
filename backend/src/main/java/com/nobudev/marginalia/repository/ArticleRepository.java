@@ -3,15 +3,47 @@ package com.nobudev.marginalia.repository;
 import com.nobudev.marginalia.entity.Article;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 
 @Repository
 public interface ArticleRepository extends JpaRepository<Article, Long> {
+
+    /**
+     * Counts unread articles for a user. An article is "unread" if no
+     * ArticleUserState row exists with is_read = true. This correctly handles
+     * the sparse state table where newly crawled articles have no state row.
+     */
+    @Query("""
+        SELECT COUNT(a) FROM Article a
+        WHERE a.feed.user.id = :userId
+          AND NOT EXISTS (
+              SELECT 1 FROM ArticleUserState s
+              WHERE s.article.id = a.id
+                AND s.user.id = :userId
+                AND s.isRead = true
+          )
+    """)
+    long countUnreadByUserId(@Param("userId") Long userId);
+    @Override
+    @EntityGraph(attributePaths = {"feed"})
+    Optional<Article> findById(Long id);
+
     Optional<Article> findByFeedIdAndGuid(Long feedId, String guid);
+
+    @EntityGraph(attributePaths = {"feed"})
     Page<Article> findByFeedIdOrderByPublishedAtDesc(Long feedId, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"feed"})
     Page<Article> findByFeedCategoryIdOrderByPublishedAtDesc(Long categoryId, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"feed"})
+    Page<Article> findByFeedUserIdOrderByPublishedAtDesc(Long userId, Pageable pageable);
+
     boolean existsByFeedIdAndGuid(Long feedId, String guid);
 }
