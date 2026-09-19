@@ -51,6 +51,21 @@ public class ArticleService {
         return enrichWithUserState(articles, userId);
     }
 
+    public Page<ArticleResponse> getUnreadArticles(Long userId, Pageable pageable) {
+        Page<Article> articles = articleRepository.findUnreadByUserId(userId, pageable);
+        return enrichWithUserState(articles, userId);
+    }
+
+    public Page<ArticleResponse> getUnreadArticlesByFeed(Long feedId, Long userId, Pageable pageable) {
+        Page<Article> articles = articleRepository.findUnreadByFeedIdAndUserId(feedId, userId, pageable);
+        return enrichWithUserState(articles, userId);
+    }
+
+    public Page<ArticleResponse> getUnreadArticlesByCategory(Long categoryId, Long userId, Pageable pageable) {
+        Page<Article> articles = articleRepository.findUnreadByCategoryIdAndUserId(categoryId, userId, pageable);
+        return enrichWithUserState(articles, userId);
+    }
+
     public Page<ArticleResponse> getSavedArticles(Long userId, Pageable pageable) {
         Pageable adaptedPageable = remapSortForSavedArticles(pageable);
         Page<ArticleUserState> savedStates = stateRepository.findByUserIdAndIsSavedTrue(userId, adaptedPageable);
@@ -139,6 +154,24 @@ public class ArticleService {
 
         // 1 batch save: all inserts and updates in a single flush
         stateRepository.saveAll(toSave);
+    }
+
+    @Transactional
+    public void markAllAsReadForUser(Long userId) {
+        List<Long> unreadIds = articleRepository.findUnreadArticleIdsByUserId(userId);
+        markAllAsRead(userId, unreadIds);
+    }
+
+    @Transactional
+    public void markFeedAsRead(Long userId, Long feedId) {
+        List<Long> unreadIds = articleRepository.findUnreadArticleIdsByFeedIdAndUserId(feedId, userId);
+        markAllAsRead(userId, unreadIds);
+    }
+
+    @Transactional
+    public void markCategoryAsRead(Long userId, Long categoryId) {
+        List<Long> unreadIds = articleRepository.findUnreadArticleIdsByCategoryIdAndUserId(categoryId, userId);
+        markAllAsRead(userId, unreadIds);
     }
 
     // -----------------------------------------------------------------------

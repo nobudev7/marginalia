@@ -229,6 +229,34 @@ class ApiControllerTest {
     }
 
     @Test
+    void testGetArticlesUnreadOnly() {
+        // Initially testArticle is unread
+        Page<ArticleResponse> unread = articleController.getArticles(null, null, false, true, PageRequest.of(0, 20));
+        assertThat(unread.getContent()).hasSize(1);
+        assertThat(unread.getContent().getFirst().id()).isEqualTo(testArticle.getId());
+
+        // Mark as read
+        articleController.markRead(testArticle.getId(), true);
+
+        // Now unread query returns 0 items
+        Page<ArticleResponse> afterRead = articleController.getArticles(null, null, false, true, PageRequest.of(0, 20));
+        assertThat(afterRead.getContent()).isEmpty();
+    }
+
+    @Test
+    void testMarkAllAsReadWithoutIds() {
+        // Initially 1 unread
+        assertThat(articleController.getUnreadCount().get("unreadCount")).isEqualTo(1L);
+
+        // Mark all as read with null/empty list
+        ResponseEntity<Void> response = articleController.markAllAsRead(null, null, null);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+
+        // Now 0 unread
+        assertThat(articleController.getUnreadCount().get("unreadCount")).isEqualTo(0L);
+    }
+
+    @Test
     void testGetUnreadCountIncludesArticlesWithNoStateRow() {
         // testArticle has no ArticleUserState row — it should count as unread
         Map<String, Long> count = articleController.getUnreadCount();

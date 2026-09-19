@@ -220,5 +220,39 @@ curl -s http://localhost:5173/api/auth/status
 * **Defensive Frontend Unread Polling**: `useFeeds` queries `/api/articles/unread-counts` and gracefully falls back to `/api/articles/unread-count` if running against an un-restarted backend.
 * **Responsive Drawer Architecture**: Implemented desktop sticky positioning (`md:flex sticky top-[53px]`) alongside mobile fixed backdrop overlay (`fixed inset-0 md:hidden`) to provide native-feeling drawer navigation on phone screens.
 
+---
+
+## 2026-09-19 — Phase 4 (Step 4.4): Article Stream Pane & Interactive Reading Controls
+
+### Scope & Goals
+* Implement backend unread article stream queries in `ArticleRepository` (`findUnreadByUserId`, `findUnreadByFeedIdAndUserId`, `findUnreadByCategoryIdAndUserId`) and `unreadOnly` parameter in `ArticleController.getArticles`.
+* Implement flexible `markAllAsRead` supporting POST/PUT and optional `feedId` / `categoryId` scoping in `ArticleController` and `ArticleService`.
+* Add unit tests in `ApiControllerTest` for unread article retrieval and scoped bulk mark-as-read (59 tests total).
+* Build text formatting and sanitization utilities (`formatRelativeTime`, `stripHtml`, `estimateReadingTime`) in `src/utils/formatters.ts`.
+* Implement `useArticles` custom hook supporting pagination (`loadMore`), filter switching, view refreshing, and optimistic read/saved updates.
+* Build `ArticleCard` component with editorial typography, unread status dot, publication metadata, relative timestamps, reading time estimates, sanitized summary snippets, thumbnail preview, and inline interactive action buttons (read/unread toggle, bookmark star, external publisher link).
+* Build `ArticleStream` component featuring active filter header, unread badge counter, "Mark All Read" bulk action, refresh button, paper loading skeletons, and context-aware empty state illustrations.
+* Integrate `ArticleStream` into `AppLayout` with bidirectional synchronization between article stream actions and sidebar unread counts.
+
+### Verification Checklist
+- [x] Frontend compilation & bundle: `npm run build` (`dist/` generated with 0 errors in 645ms)
+- [x] Frontend linting: `npm run lint` (0 errors across all 21 files)
+- [x] Backend test suite: `./mvnw test` (59 tests passed, 0 failures, 0 errors)
+- [x] Stream filtering: Switching between "All Articles", "Unread Only", "Saved", categories, and feeds correctly queries and renders filtered streams
+- [x] Optimistic read/unread toggle: Clicking the read toggle button immediately updates card typography, removes/adds unread dot, and synchronizes sidebar unread badges
+- [x] Bookmark toggle: Clicking the star icon saves or unsaves the article and reflects immediately in the "Saved" stream
+- [x] Bulk mark all as read: Clicking "Mark All Read" marks all visible items as read and resets unread counters to zero
+- [x] Pagination: "Load More Articles" fetches subsequent pages and appends new dispatches without duplicate keys
+- [x] Empty states: Clear editorial empty states for caught-up unread streams, empty bookmark libraries, and empty feeds
+
+### Technical Notes & Decisions
+* **Sparse State Unread Queries**: Mirrored the unread count logic in article page queries using `NOT EXISTS (SELECT 1 FROM ArticleUserState s WHERE s.article.id = a.id AND s.user.id = :userId AND s.isRead = true)`. This ensures articles without a row in the sparse state table are accurately returned as unread when `unreadOnly=true`.
+* **Optimistic Updates with Graceful Rollback**: Both `toggleRead` and `toggleSave` apply immediate state mutations to local React state before dispatching HTTP PUT requests, providing instant visual feedback. If the network request fails, state reverts to its prior value.
+* **Stream & Sidebar Synchronization**: When an article's read status changes in `ArticleStream` or when "Mark All Read" is executed, `onUnreadChanged` invokes `refreshFeeds()`, keeping the sidebar badges in sync without requiring full page reloads.
+* **HTML Sanitization & Snippet Formatting**: Added `stripHtml` in `formatters.ts` to decode HTML entities and eliminate raw markup from RSS descriptions, guaranteeing clean card summaries without layout disruption.
+* **Pagination Deduplication**: When appending paginated dispatches via `loadMore`, incoming article IDs are checked against an ID `Set` of existing items, preventing duplicate key errors if background crawling shifted page boundaries between requests.
+* **Default Subscription Unread-Only Stream State**: Subscriptions (feeds and folders) default to showing only unread articles upon selection. When all articles are read, a simple "All read" empty state is displayed with an inline action to view read articles. Added a toggle button at the top of the stream ("Show Read Articles" / "Show Unread Only") allowing users to view read articles at any time.
+
+
 
 

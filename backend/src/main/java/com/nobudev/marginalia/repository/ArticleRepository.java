@@ -59,5 +59,119 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
     @EntityGraph(attributePaths = {"feed"})
     Page<Article> findByFeedUserIdOrderByPublishedAtDesc(Long userId, Pageable pageable);
 
+    @EntityGraph(attributePaths = {"feed"})
+    @Query(value = """
+        SELECT a FROM Article a
+        WHERE a.feed.user.id = :userId
+          AND NOT EXISTS (
+              SELECT 1 FROM ArticleUserState s
+              WHERE s.article.id = a.id
+                AND s.user.id = :userId
+                AND s.isRead = true
+          )
+        ORDER BY a.publishedAt DESC
+    """,
+    countQuery = """
+        SELECT COUNT(a) FROM Article a
+        WHERE a.feed.user.id = :userId
+          AND NOT EXISTS (
+              SELECT 1 FROM ArticleUserState s
+              WHERE s.article.id = a.id
+                AND s.user.id = :userId
+                AND s.isRead = true
+          )
+    """)
+    Page<Article> findUnreadByUserId(@Param("userId") Long userId, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"feed"})
+    @Query(value = """
+        SELECT a FROM Article a
+        WHERE a.feed.id = :feedId
+          AND a.feed.user.id = :userId
+          AND NOT EXISTS (
+              SELECT 1 FROM ArticleUserState s
+              WHERE s.article.id = a.id
+                AND s.user.id = :userId
+                AND s.isRead = true
+          )
+        ORDER BY a.publishedAt DESC
+    """,
+    countQuery = """
+        SELECT COUNT(a) FROM Article a
+        WHERE a.feed.id = :feedId
+          AND a.feed.user.id = :userId
+          AND NOT EXISTS (
+              SELECT 1 FROM ArticleUserState s
+              WHERE s.article.id = a.id
+                AND s.user.id = :userId
+                AND s.isRead = true
+          )
+    """)
+    Page<Article> findUnreadByFeedIdAndUserId(@Param("feedId") Long feedId, @Param("userId") Long userId, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"feed"})
+    @Query(value = """
+        SELECT a FROM Article a
+        WHERE a.feed.category.id = :categoryId
+          AND a.feed.user.id = :userId
+          AND NOT EXISTS (
+              SELECT 1 FROM ArticleUserState s
+              WHERE s.article.id = a.id
+                AND s.user.id = :userId
+                AND s.isRead = true
+          )
+        ORDER BY a.publishedAt DESC
+    """,
+    countQuery = """
+        SELECT COUNT(a) FROM Article a
+        WHERE a.feed.category.id = :categoryId
+          AND a.feed.user.id = :userId
+          AND NOT EXISTS (
+              SELECT 1 FROM ArticleUserState s
+              WHERE s.article.id = a.id
+                AND s.user.id = :userId
+                AND s.isRead = true
+          )
+    """)
+    Page<Article> findUnreadByCategoryIdAndUserId(@Param("categoryId") Long categoryId, @Param("userId") Long userId, Pageable pageable);
+
+    @Query("""
+        SELECT a.id FROM Article a
+        WHERE a.feed.user.id = :userId
+          AND NOT EXISTS (
+              SELECT 1 FROM ArticleUserState s
+              WHERE s.article.id = a.id
+                AND s.user.id = :userId
+                AND s.isRead = true
+          )
+    """)
+    java.util.List<Long> findUnreadArticleIdsByUserId(@Param("userId") Long userId);
+
+    @Query("""
+        SELECT a.id FROM Article a
+        WHERE a.feed.id = :feedId
+          AND a.feed.user.id = :userId
+          AND NOT EXISTS (
+              SELECT 1 FROM ArticleUserState s
+              WHERE s.article.id = a.id
+                AND s.user.id = :userId
+                AND s.isRead = true
+          )
+    """)
+    java.util.List<Long> findUnreadArticleIdsByFeedIdAndUserId(@Param("feedId") Long feedId, @Param("userId") Long userId);
+
+    @Query("""
+        SELECT a.id FROM Article a
+        WHERE a.feed.category.id = :categoryId
+          AND a.feed.user.id = :userId
+          AND NOT EXISTS (
+              SELECT 1 FROM ArticleUserState s
+              WHERE s.article.id = a.id
+                AND s.user.id = :userId
+                AND s.isRead = true
+          )
+    """)
+    java.util.List<Long> findUnreadArticleIdsByCategoryIdAndUserId(@Param("categoryId") Long categoryId, @Param("userId") Long userId);
+
     boolean existsByFeedIdAndGuid(Long feedId, String guid);
 }

@@ -33,11 +33,20 @@ public class ArticleController {
             @RequestParam(required = false) Long feedId,
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false, defaultValue = "false") boolean saved,
+            @RequestParam(required = false, defaultValue = "false") boolean unreadOnly,
             @PageableDefault(size = 20, sort = "publishedAt", direction = Sort.Direction.DESC) Pageable pageable) {
         User user = userService.getCurrentUser();
 
         if (saved) {
             return articleService.getSavedArticles(user.getId(), pageable);
+        } else if (unreadOnly) {
+            if (feedId != null) {
+                return articleService.getUnreadArticlesByFeed(feedId, user.getId(), pageable);
+            } else if (categoryId != null) {
+                return articleService.getUnreadArticlesByCategory(categoryId, user.getId(), pageable);
+            } else {
+                return articleService.getUnreadArticles(user.getId(), pageable);
+            }
         } else if (feedId != null) {
             return articleService.getArticlesByFeed(feedId, user.getId(), pageable);
         } else if (categoryId != null) {
@@ -45,6 +54,14 @@ public class ArticleController {
         } else {
             return articleService.getAllArticles(user.getId(), pageable);
         }
+    }
+
+    public Page<ArticleResponse> getArticles(
+            Long feedId,
+            Long categoryId,
+            boolean saved,
+            Pageable pageable) {
+        return getArticles(feedId, categoryId, saved, false, pageable);
     }
 
     @GetMapping("/unread-count")
@@ -102,10 +119,25 @@ public class ArticleController {
         return ResponseEntity.noContent().build();
     }
 
-    @PostMapping("/mark-all-read")
-    public ResponseEntity<Void> markAllAsRead(@RequestBody List<Long> articleIds) {
+    @RequestMapping(value = "/mark-all-read", method = {RequestMethod.POST, RequestMethod.PUT})
+    public ResponseEntity<Void> markAllAsRead(
+            @RequestBody(required = false) List<Long> articleIds,
+            @RequestParam(required = false) Long feedId,
+            @RequestParam(required = false) Long categoryId) {
         User user = userService.getCurrentUser();
-        articleService.markAllAsRead(user.getId(), articleIds != null ? articleIds : Collections.emptyList());
+        if (articleIds != null && !articleIds.isEmpty()) {
+            articleService.markAllAsRead(user.getId(), articleIds);
+        } else if (feedId != null) {
+            articleService.markFeedAsRead(user.getId(), feedId);
+        } else if (categoryId != null) {
+            articleService.markCategoryAsRead(user.getId(), categoryId);
+        } else {
+            articleService.markAllAsReadForUser(user.getId());
+        }
         return ResponseEntity.noContent().build();
+    }
+
+    public ResponseEntity<Void> markAllAsRead(List<Long> articleIds) {
+        return markAllAsRead(articleIds, null, null);
     }
 }
