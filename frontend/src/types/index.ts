@@ -78,6 +78,29 @@ export interface UnreadCountResponse {
   unreadCount: number;
 }
 
+export interface UnreadCountsResponse {
+  total: number;
+  byFeed: Record<string, number>;
+}
+
+export interface FeedRequest {
+  feedUrl: string;
+  title?: string;
+  categoryId?: number | null;
+}
+
+export interface CategoryRequest {
+  name: string;
+  sortOrder?: number;
+}
+
+export type NavFilter =
+  | { type: 'all' }
+  | { type: 'unread' }
+  | { type: 'saved' }
+  | { type: 'category'; categoryId: number; name: string }
+  | { type: 'feed'; feedId: number; title: string };
+
 export interface ApiStatus {
   online: boolean;
   statusCode?: number;

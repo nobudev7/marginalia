@@ -194,4 +194,31 @@ curl -s http://localhost:5173/api/auth/status
 * **Persistent Cookie Flow via Proxy**: The `MARGINALIA_SESSION` cookie is managed with `SameSite=Lax` and `HttpOnly`. Because the Vite dev server proxies `/api`, browser security treats all requests as same-origin, allowing cookies to attach automatically.
 * **Dev-Login Whitelist Enforcement**: Updated `AuthController.devLogin` to validate the submitted email against `AuthWhitelistService.isWhitelisted` instead of auto-whitelisting arbitrary addresses. Unwhitelisted addresses now return `403 Forbidden` and trigger an access denied alert banner on the frontend login card.
 
+---
+
+## 2026-09-19 — Phase 4 (Step 4.3): Navigation, Collapsible Sidebar & Feed Subscription
+
+### Scope & Goals
+* Implement `useCategories` and `useFeeds` hooks managing feed and category data, subscription creation, deletion, and unread counts.
+* Implement grouped unread count query in `ArticleRepository` and endpoint `GET /api/articles/unread-counts` for live per-feed badges.
+* Build collapsible `Sidebar` featuring primary stream filters ("All Articles", "Unread Only", "Saved") and category folder accordions with live unread badge counters.
+* Build `AddFeedModal` dialog with RSS/Atom URL input, title override, and inline category assignment or creation.
+* Support responsive mobile drawer with hamburger toggle button in `Header` and backdrop touch dismissal.
+* Connect two-pane navigation flow in `AppLayout`.
+
+### Verification Checklist
+- [x] Frontend compilation & bundle: `npm run build` (`dist/` generated with 0 errors in 490ms)
+- [x] Backend test suite: `./mvnw test` (57 tests passed, 0 failures, 0 errors)
+- [x] Sidebar navigation: "All Articles", "Unread Only", "Saved" views highlight when active and display unread counts
+- [x] Category accordions: Smooth expand/collapse animation for folder groups with unread badges
+- [x] Feed subscription modal: Entering an RSS feed URL creates feed, triggers initial crawl, and refreshes sidebar feeds
+- [x] Mobile drawer: Resizing viewport <768px collapses sidebar into header hamburger menu; tapping slides out full drawer over backdrop blur
+
+### Technical Notes & Decisions
+* **Spring MVC Path Variable Disambiguation**: Added regex constraint `/{id:\\d+}` on numeric endpoints and placed literal endpoints (`/unread-counts`, `/unread-count`) before path variable routes in `ArticleController` to eliminate type mismatch routing conflicts.
+* **Grouped Unread SQL Optimization**: Implemented a single `SELECT a.feed.id, COUNT(a) ... GROUP BY a.feed.id` query on `ArticleRepository` to fetch all feed unread counts in a single database query, avoiding N+1 count queries across subscribed feeds.
+* **Defensive Frontend Unread Polling**: `useFeeds` queries `/api/articles/unread-counts` and gracefully falls back to `/api/articles/unread-count` if running against an un-restarted backend.
+* **Responsive Drawer Architecture**: Implemented desktop sticky positioning (`md:flex sticky top-[53px]`) alongside mobile fixed backdrop overlay (`fixed inset-0 md:hidden`) to provide native-feeling drawer navigation on phone screens.
+
+
 

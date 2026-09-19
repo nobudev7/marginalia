@@ -80,6 +80,15 @@ public class ArticleService {
         return articleRepository.countUnreadByUserId(userId);
     }
 
+    public java.util.Map<Long, Long> getUnreadCountsByFeed(Long userId) {
+        java.util.List<Object[]> rows = articleRepository.countUnreadGroupedByFeed(userId);
+        java.util.Map<Long, Long> counts = new java.util.HashMap<>();
+        for (Object[] row : rows) {
+            counts.put((Long) row[0], (Long) row[1]);
+        }
+        return counts;
+    }
+
     public ArticleResponse getArticle(Long articleId, Long userId) {
         Article article = articleRepository.findById(articleId)
                 .orElseThrow(() -> new IllegalArgumentException("Article not found: " + articleId));

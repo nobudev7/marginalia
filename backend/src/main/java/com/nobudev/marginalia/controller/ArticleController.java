@@ -47,13 +47,30 @@ public class ArticleController {
         }
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/unread-count")
+    public Map<String, Long> getUnreadCount() {
+        User user = userService.getCurrentUser();
+        return Map.of("unreadCount", articleService.getUnreadCount(user.getId()));
+    }
+
+    @GetMapping("/unread-counts")
+    public Map<String, Object> getUnreadCounts() {
+        User user = userService.getCurrentUser();
+        long total = articleService.getUnreadCount(user.getId());
+        Map<Long, Long> byFeed = articleService.getUnreadCountsByFeed(user.getId());
+        return Map.of(
+                "total", total,
+                "byFeed", byFeed
+        );
+    }
+
+    @GetMapping("/{id:\\d+}")
     public ArticleResponse getArticle(@PathVariable Long id) {
         User user = userService.getCurrentUser();
         return articleService.getArticle(id, user.getId());
     }
 
-    @PatchMapping("/{id}")
+    @PatchMapping("/{id:\\d+}")
     public ResponseEntity<Void> updateArticleState(
             @PathVariable Long id,
             @RequestBody ArticleStateRequest request) {
@@ -90,11 +107,5 @@ public class ArticleController {
         User user = userService.getCurrentUser();
         articleService.markAllAsRead(user.getId(), articleIds != null ? articleIds : Collections.emptyList());
         return ResponseEntity.noContent().build();
-    }
-
-    @GetMapping("/unread-count")
-    public Map<String, Long> getUnreadCount() {
-        User user = userService.getCurrentUser();
-        return Map.of("unreadCount", articleService.getUnreadCount(user.getId()));
     }
 }

@@ -236,6 +236,13 @@ class ApiControllerTest {
     }
 
     @Test
+    void testGetUnreadCountsReturnsTotalAndByFeed() {
+        Map<String, Object> counts = articleController.getUnreadCounts();
+        assertThat(counts.get("total")).isEqualTo(1L);
+        assertThat(counts.get("byFeed")).isNotNull();
+    }
+
+    @Test
     void testGetUnreadCountDecreasesAfterMarkingRead() {
         // Initially 1 unread article (testArticle, no state row)
         assertThat(articleController.getUnreadCount().get("unreadCount")).isEqualTo(1L);

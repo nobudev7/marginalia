@@ -30,6 +30,20 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
           )
     """)
     long countUnreadByUserId(@Param("userId") Long userId);
+
+    @Query("""
+        SELECT a.feed.id, COUNT(a) FROM Article a
+        WHERE a.feed.user.id = :userId
+          AND NOT EXISTS (
+              SELECT 1 FROM ArticleUserState s
+              WHERE s.article.id = a.id
+                AND s.user.id = :userId
+                AND s.isRead = true
+          )
+        GROUP BY a.feed.id
+    """)
+    java.util.List<Object[]> countUnreadGroupedByFeed(@Param("userId") Long userId);
+
     @Override
     @EntityGraph(attributePaths = {"feed"})
     Optional<Article> findById(Long id);

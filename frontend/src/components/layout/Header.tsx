@@ -1,14 +1,29 @@
-import { LogOut, User as UserIcon } from 'lucide-react';
+import { LogOut, User as UserIcon, Menu } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
-export function Header() {
+interface HeaderProps {
+  onToggleMobileMenu?: () => void;
+}
+
+export function Header({ onToggleMobileMenu }: HeaderProps) {
   const { user, logout } = useAuth();
 
   return (
-    <header className="border-b border-paper-300 bg-paper-50 sticky top-0 z-30 px-6 py-3 shadow-xs">
-      <div className="max-w-7xl mx-auto flex items-center justify-between">
-        {/* Logo & Brand */}
-        <div className="flex items-center space-x-3">
+    <header className="border-b border-paper-300 bg-paper-50 sticky top-0 z-30 px-4 sm:px-6 py-2.5 shadow-xs">
+      <div className="flex items-center justify-between">
+        {/* Left: Mobile Menu Toggle & Brand */}
+        <div className="flex items-center space-x-2.5">
+          {onToggleMobileMenu && (
+            <button
+              type="button"
+              onClick={onToggleMobileMenu}
+              className="md:hidden p-1.5 -ml-1 text-ink-600 hover:text-ink-900 hover:bg-paper-200 rounded-lg transition-colors"
+              title="Toggle Navigation Menu"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+          )}
+
           <div className="w-8 h-8 rounded-lg bg-amberAccent-700 text-paper-50 flex items-center justify-center font-serif font-bold text-lg shadow-xs">
             M
           </div>
