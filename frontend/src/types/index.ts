@@ -48,6 +48,7 @@ export interface UserDto {
   email: string;
   displayName: string;
   avatarUrl: string | null;
+  isAdmin: boolean;
 }
 
 export interface AuthStatus {

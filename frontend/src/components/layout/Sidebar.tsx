@@ -10,7 +10,8 @@ import {
   Plus, 
   Trash2, 
   RotateCw,
-  X
+  X,
+  Settings
 } from 'lucide-react';
 import type { CategoryDto, FeedDto, NavFilter } from '../../types';
 import { cn } from '../../utils/cn';
@@ -23,6 +24,7 @@ interface SidebarProps {
   totalUnread: number;
   unreadByFeed: Record<number, number>;
   onOpenAddFeed: () => void;
+  onOpenSettings?: () => void;
   onDeleteFeed: (feedId: number) => Promise<void>;
   onRefreshFeeds: () => Promise<void>;
   isMobileOpen: boolean;
@@ -37,6 +39,7 @@ export function Sidebar({
   totalUnread,
   unreadByFeed,
   onOpenAddFeed,
+  onOpenSettings,
   onDeleteFeed,
   onRefreshFeeds,
   isMobileOpen,
@@ -170,15 +173,27 @@ export function Sidebar({
         <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-400 font-mono">
           Subscriptions ({feeds.length})
         </span>
-        <button
-          type="button"
-          onClick={handleRefresh}
-          disabled={refreshing}
-          className="p-1 text-ink-400 hover:text-ink-800 rounded transition-colors"
-          title="Refresh All Feeds"
-        >
-          <RotateCw className={cn('w-3.5 h-3.5', refreshing && 'animate-spin text-amberAccent-700')} />
-        </button>
+        <div className="flex items-center space-x-1">
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="p-1 text-ink-400 hover:text-ink-800 rounded transition-colors"
+            title="Refresh All Feeds"
+          >
+            <RotateCw className={cn('w-3.5 h-3.5', refreshing && 'animate-spin text-amberAccent-700')} />
+          </button>
+          {onOpenSettings && (
+            <button
+              type="button"
+              onClick={onOpenSettings}
+              className="p-1 text-ink-400 hover:text-ink-800 rounded transition-colors"
+              title="Settings & OPML Subscriptions"
+            >
+              <Settings className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Category Folders & Feeds Accordion Scroll Area */}

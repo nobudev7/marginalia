@@ -289,3 +289,30 @@ curl -s http://localhost:5173/api/auth/status
   2. Media RSS (`<media:content medium="image">`, `<media:thumbnail>`, and `<media:group>`) via ROME `getForeignMarkup()`
   3. Inline HTML `<img>` parsing in `<content:encoded>` and `<description>` (filtering out tracking pixels and beacons)
   Additionally implemented thumbnail backfilling: if an article already exists in the database with a `null` `imageUrl`, re-crawling extracts and updates the image URL without altering the rest of the article record.
+
+---
+
+## 2026-09-19 — Phase 4 (Step 4.6): OPML Import/Export & Whitelist Admin Modals
+
+### Scope & Goals
+* Build `SettingsModal` accessible from both the application `Header` and `Sidebar` subscriptions section.
+* Implement OPML 2.0 Export (`GET /api/opml/export`), downloading `marginalia-subscriptions.opml` file containing all subscribed feeds and folder hierarchies.
+* Implement OPML Import (`POST /api/opml/import`) with drag-and-drop file upload target supporting `.opml` and `.xml` files, file validation, progress state, and live library synchronization.
+* Implement Whitelist Access Control tab:
+  * Expose `isAdmin` on `AuthResponse` DTO and user session payload.
+  * For administrators: list whitelisted accounts (`GET /api/admin/whitelist`), add new email (`POST /api/admin/whitelist`), and remove whitelisted email (`DELETE /api/admin/whitelist/{id}`).
+  * Implement safeguards: prevent self-deletion ("You" badge) and prevent bootstrap admin deletion ("Bootstrap" badge) in the UI matching backend security validation.
+  * For non-administrators: show informative guidance alerting that administrative rights are required.
+
+### Verification Checklist
+- [x] Frontend compilation & bundle: `npm run build` (`dist/` generated with 0 errors in 563ms)
+- [x] Frontend linting: `npm run lint` (0 errors across 26 files)
+- [x] Backend test suite: `./mvnw test` (60 tests passed, 0 failures, 0 errors)
+- [x] Settings modal access: Clicking "Settings" in top header or subscriptions header smoothly opens `SettingsModal`
+- [x] Tab switching: Seamless switching between "OPML Subscriptions" and "Access Whitelist"
+- [x] OPML export: Initiating export downloads `marginalia-subscriptions.opml` with proper XML mime type
+- [x] OPML import: Dragging/dropping an OPML file uploads to `/api/opml/import`, triggers toast summary, and refreshes sidebar feeds and categories
+- [x] Admin whitelist listing: Displays all whitelisted emails with notes, creation dates, and role badges
+- [x] Admin whitelist creation: Adding a valid email immediately creates and renders entry in table
+- [x] Whitelist protections: Self-account and bootstrap admin entries disable delete action to prevent lockouts
+- [x] Modal ergonomics: Dismissable via `Escape`, `X` button, backdrop click, or "Done" button

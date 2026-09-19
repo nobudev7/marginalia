@@ -1,11 +1,12 @@
-import { LogOut, User as UserIcon, Menu } from 'lucide-react';
+import { LogOut, User as UserIcon, Menu, Settings } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
 interface HeaderProps {
   onToggleMobileMenu?: () => void;
+  onOpenSettings?: () => void;
 }
 
-export function Header({ onToggleMobileMenu }: HeaderProps) {
+export function Header({ onToggleMobileMenu, onOpenSettings }: HeaderProps) {
   const { user, logout } = useAuth();
 
   return (
@@ -38,7 +39,7 @@ export function Header({ onToggleMobileMenu }: HeaderProps) {
         </div>
 
         {/* User Badge & Actions */}
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-2 sm:space-x-2.5">
           {user && (
             <div className="flex items-center space-x-2.5 px-3 py-1.5 rounded-full border border-paper-300 bg-paper-100">
               {user.avatarUrl ? (
@@ -61,10 +62,22 @@ export function Header({ onToggleMobileMenu }: HeaderProps) {
             </div>
           )}
 
+          {onOpenSettings && (
+            <button
+              type="button"
+              onClick={onOpenSettings}
+              className="flex items-center space-x-1.5 px-2.5 py-1.5 text-xs text-ink-600 hover:text-ink-900 hover:bg-paper-200 border border-transparent hover:border-paper-300 rounded-lg transition-colors font-medium"
+              title="Settings & OPML Subscriptions"
+            >
+              <Settings className="w-3.5 h-3.5 text-amberAccent-700" />
+              <span className="hidden sm:inline">Settings</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={logout}
-            className="flex items-center space-x-1.5 px-3 py-1.5 text-xs text-ink-600 hover:text-ink-900 hover:bg-paper-200 border border-transparent hover:border-paper-300 rounded-lg transition-colors font-medium"
+            className="flex items-center space-x-1.5 px-2.5 py-1.5 text-xs text-ink-600 hover:text-ink-900 hover:bg-paper-200 border border-transparent hover:border-paper-300 rounded-lg transition-colors font-medium"
             title="Log Out"
           >
             <LogOut className="w-3.5 h-3.5" />

@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
 import { AddFeedModal } from '../feeds/AddFeedModal';
+import { SettingsModal } from '../settings/SettingsModal';
 import { ArticleStream } from '../stream/ArticleStream';
 import { useCategories } from '../../hooks/useCategories';
 import { useFeeds } from '../../hooks/useFeeds';
 import type { NavFilter, ArticleDto } from '../../types';
 
 export function AppLayout() {
-  const { categories, addCategory } = useCategories();
+  const { categories, addCategory, refreshCategories } = useCategories();
   const { 
     feeds, 
     totalUnread, 
@@ -21,6 +22,7 @@ export function AppLayout() {
   const [currentFilter, setCurrentFilter] = useState<NavFilter>({ type: 'all' });
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [isAddFeedModalOpen, setIsAddFeedModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [, setSelectedArticle] = useState<ArticleDto | null>(null);
 
   const handleSelectArticle = (article: ArticleDto) => {
@@ -29,8 +31,11 @@ export function AppLayout() {
 
   return (
     <div className="min-h-screen bg-paper-100 text-ink-900 flex flex-col selection:bg-amberAccent-100 selection:text-amberAccent-800">
-      {/* Top Application Header with Mobile Menu Toggle */}
-      <Header onToggleMobileMenu={() => setIsMobileNavOpen(true)} />
+      {/* Top Application Header with Mobile Menu Toggle & Settings Button */}
+      <Header 
+        onToggleMobileMenu={() => setIsMobileNavOpen(true)} 
+        onOpenSettings={() => setIsSettingsModalOpen(true)}
+      />
 
       {/* Two-Column App Layout */}
       <div className="flex-1 flex w-full">
@@ -43,6 +48,7 @@ export function AppLayout() {
           totalUnread={totalUnread}
           unreadByFeed={unreadByFeed}
           onOpenAddFeed={() => setIsAddFeedModalOpen(true)}
+          onOpenSettings={() => setIsSettingsModalOpen(true)}
           onDeleteFeed={deleteFeed}
           onRefreshFeeds={refreshFeeds}
           isMobileOpen={isMobileNavOpen}
@@ -70,6 +76,15 @@ export function AppLayout() {
         categories={categories}
         onAddFeed={addFeed}
         onAddCategory={addCategory}
+      />
+
+      {/* Settings, OPML Subscriptions & Whitelist Management Modal */}
+      <SettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        onFeedsChanged={async () => {
+          await Promise.all([refreshFeeds(), refreshCategories()]);
+        }}
       />
     </div>
   );

@@ -49,7 +49,8 @@ public class AuthController {
 
         try {
             User user = userService.getCurrentUser();
-            return ResponseEntity.ok(AuthResponse.from(user));
+            boolean isAdmin = whitelistService.isAdmin(user.getEmail());
+            return ResponseEntity.ok(AuthResponse.from(user, isAdmin));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
@@ -64,9 +65,10 @@ public class AuthController {
         if (auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken)) {
             try {
                 User user = userService.getCurrentUser();
+                boolean isAdmin = whitelistService.isAdmin(user.getEmail());
                 return Map.of(
                         "authenticated", true,
-                        "user", AuthResponse.from(user)
+                        "user", AuthResponse.from(user, isAdmin)
                 );
             } catch (Exception ignored) {
             }
