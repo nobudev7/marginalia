@@ -430,7 +430,7 @@ export function ReadingDrawer({
           />
 
           {/* Publisher Attribution & External Link Footer */}
-          <footer className="mt-12 pt-6 pb-8 border-t border-paper-300">
+          <footer className="mt-12 pt-6 pb-8 pb-safe border-t border-paper-300">
             <div className="p-4 rounded-xl border border-paper-300 bg-paper-50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
                 <p className="font-serif text-xs font-bold text-ink-800">

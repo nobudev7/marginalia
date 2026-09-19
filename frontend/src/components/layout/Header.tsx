@@ -1,5 +1,6 @@
-import { LogOut, User as UserIcon, Menu, Settings } from 'lucide-react';
+import { LogOut, User as UserIcon, Menu, Settings, Download } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import { usePwaInstall } from '../../hooks/usePwaInstall';
 
 interface HeaderProps {
   onToggleMobileMenu?: () => void;
@@ -8,6 +9,7 @@ interface HeaderProps {
 
 export function Header({ onToggleMobileMenu, onOpenSettings }: HeaderProps) {
   const { user, logout } = useAuth();
+  const { canInstall, promptInstall } = usePwaInstall();
 
   return (
     <header className="border-b border-paper-300 bg-paper-50 sticky top-0 z-30 px-4 sm:px-6 py-2.5 shadow-xs">
@@ -60,6 +62,18 @@ export function Header({ onToggleMobileMenu, onOpenSettings }: HeaderProps) {
                 {user.email}
               </span>
             </div>
+          )}
+
+          {canInstall && (
+            <button
+              type="button"
+              onClick={promptInstall}
+              className="flex items-center space-x-1.5 px-2.5 py-1.5 text-xs font-semibold bg-amberAccent-100 hover:bg-amberAccent-200 text-amberAccent-900 border border-amberAccent-300 rounded-lg transition-colors shadow-2xs cursor-pointer"
+              title="Install Marginalia as PWA"
+            >
+              <Download className="w-3.5 h-3.5 text-amberAccent-800" />
+              <span className="hidden sm:inline">Install App</span>
+            </button>
           )}
 
           {onOpenSettings && (

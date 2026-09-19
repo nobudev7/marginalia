@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#D97706" />
+      <stop offset="100%" stop-color="#92400E" />
+    </linearGradient>
+  </defs>
+  <!-- Full-bleed background for maskable icon cropping -->
+  <rect width="512" height="512" fill="url(#bgGrad)" />
+  <g transform="translate(64, 64) scale(0.75)">
+    <rect x="72" y="100" width="14" height="312" rx="7" fill="#FDE68A" opacity="0.85" />
+    <path
+      d="M140 376 V136 h44 l72 170 72 -170 h44 v240 h-36 V198 l-64 150 h-32 l-64 -150 v178 Z"
+      fill="#FAF8F5"
+    />
+  </g>
+</svg>

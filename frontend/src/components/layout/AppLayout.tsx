@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
+import { MobileBottomNav } from './MobileBottomNav';
 import { AddFeedModal } from '../feeds/AddFeedModal';
 import { SettingsModal } from '../settings/SettingsModal';
 import { ArticleStream } from '../stream/ArticleStream';
@@ -56,7 +57,7 @@ export function AppLayout() {
         />
 
         {/* Main Article Stream Pane */}
-        <main className="flex-1 p-5 sm:p-8 max-w-4xl overflow-y-auto">
+        <main className="flex-1 p-5 sm:p-8 pb-20 md:pb-8 max-w-4xl overflow-y-auto">
           <ArticleStream
             filter={currentFilter}
             feeds={feeds}
@@ -68,6 +69,15 @@ export function AppLayout() {
           />
         </main>
       </div>
+
+      {/* Mobile Bottom Navigation Bar (< md screens) */}
+      <MobileBottomNav
+        currentFilter={currentFilter}
+        onSelectFilter={setCurrentFilter}
+        totalUnread={totalUnread}
+        onOpenSidebar={() => setIsMobileNavOpen(true)}
+        onOpenSettings={() => setIsSettingsModalOpen(true)}
+      />
 
       {/* Subscribe to Feed Modal Dialog */}
       <AddFeedModal

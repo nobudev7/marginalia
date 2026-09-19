@@ -30,3 +30,24 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #B8A695;
 }
+
+/* Mobile Safe Area Inset Utilities */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.pl-safe {
+  padding-left: env(safe-area-inset-left, 0px);
+}
+.pr-safe {
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* Standalone PWA titlebar spacing */
+@media all and (display-mode: standalone) {
+  header {
+    padding-top: max(0.625rem, env(safe-area-inset-top, 0px));
+  }
+}

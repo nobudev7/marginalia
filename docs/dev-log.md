@@ -316,3 +316,28 @@ curl -s http://localhost:5173/api/auth/status
 - [x] Admin whitelist creation: Adding a valid email immediately creates and renders entry in table
 - [x] Whitelist protections: Self-account and bootstrap admin entries disable delete action to prevent lockouts
 - [x] Modal ergonomics: Dismissable via `Escape`, `X` button, backdrop click, or "Done" button
+
+---
+
+## 2026-09-19 — Phase 4 (Step 4.7): PWA Configuration & Mobile Polish
+
+### Scope & Goals
+* Configure `vite-plugin-pwa` with `manifest.webmanifest`, auto-updating service worker, and precaching for offline application shell.
+* Generate Marginalia brand icons:
+  * Branded SVG favicon (`favicon.svg`) and PWA icon (`pwa-icon.svg`) with warm amber gradient background and serif "M" lettermark.
+  * Standard icons (`pwa-192x192.png`, `pwa-512x512.png`), Apple touch icon (`apple-touch-icon.png`), and maskable icon (`maskable-icon-512x512.png`).
+* Configure Workbox runtime caching for Google Fonts stylesheets and webfont binaries.
+* Implement mobile ergonomics:
+  * Safe-area inset support (`pb-safe`, `pt-safe`, `pl-safe`, `pr-safe`, `viewport-fit=cover`).
+  * Standalone PWA titlebar spacing adjustments for iOS and Android.
+  * `MobileBottomNav` bar on mobile screens (<md) with 1-tap thumb access to All Articles, Unread, Saved, Feeds drawer, and Settings.
+  * `usePwaInstall` custom hook detecting `beforeinstallprompt` and standalone mode, showing an "Install App" button in the header when available.
+  * Extra bottom padding in `ReadingDrawer` and article stream preventing UI overlap with the mobile navigation bar and system home indicator.
+
+### Verification Checklist
+- [x] PWA generation & bundle: `npm run build` generated `dist/sw.js`, `dist/workbox-*.js`, `dist/manifest.webmanifest`, and `dist/registerSW.js` (0 errors)
+- [x] Frontend linting: `npm run lint` (0 errors across 28 files)
+- [x] Web manifest inspection: `dist/manifest.webmanifest` contains valid `name`, `short_name`, `theme_color`, `background_color`, `display: standalone`, and icons (192x192, 512x512, maskable)
+- [x] Standalone PWA ergonomics: safe-area insets applied to mobile bottom bar, header, and reader drawer footer
+- [x] Mobile touch navigation: `MobileBottomNav` renders with 56px touch tap targets, live unread badges, and responsive view switching
+- [x] PWA installation prompt: `usePwaInstall` detects install capability and surfaces an "Install App" button in the application header

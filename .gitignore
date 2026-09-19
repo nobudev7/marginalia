@@ -39,6 +39,7 @@ replay_pid*
 node_modules/
 dist/
 dist-ssr/
+dev-dist/
 *.local
 .env.local
 .env.*.local
