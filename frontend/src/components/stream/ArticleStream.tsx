@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
   Inbox, 
   BookOpen, 
@@ -17,6 +17,7 @@ import {
 import type { NavFilter, FeedDto, ArticleDto } from '../../types';
 import { useArticles } from '../../hooks/useArticles';
 import { ArticleCard } from './ArticleCard';
+import { ReadingDrawer } from '../article/ReadingDrawer';
 
 interface ArticleStreamProps {
   filter: NavFilter;
@@ -67,6 +68,53 @@ export function ArticleStream({
     toggleSave,
     markAllAsRead,
   } = useArticles({ filter, unreadOnly, onUnreadChanged });
+
+  const [selectedArticle, setSelectedArticle] = useState<ArticleDto | null>(null);
+
+  // Close reading drawer when switching navigation filters/feeds
+  useEffect(() => {
+    setSelectedArticle(null);
+  }, [filter.type, currentFeedId, currentCategoryId]);
+
+  const handleSelectArticle = useCallback((article: ArticleDto) => {
+    setSelectedArticle(article);
+    onSelectArticle?.(article);
+  }, [onSelectArticle]);
+
+  const handleCloseDrawer = () => {
+    setSelectedArticle(null);
+  };
+
+  // Synchronize drawer article state with live optimistic updates in the stream
+  const activeArticle = selectedArticle
+    ? articles.find((a) => a.id === selectedArticle.id) || selectedArticle
+    : null;
+
+  // Global shortcut: press 'j' to open the first article when stream is populated and drawer is closed
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (selectedArticle !== null) return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      if ((e.key === 'j' || e.key === 'J') && articles.length > 0) {
+        e.preventDefault();
+        handleSelectArticle(articles[0]);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedArticle, articles, handleSelectArticle]);
 
   // Derive header title, subtitle, and icon
   const getHeaderInfo = () => {
@@ -343,7 +391,7 @@ export function ArticleStream({
               article={article}
               onToggleRead={toggleRead}
               onToggleSave={toggleSave}
-              onSelectArticle={onSelectArticle}
+              onSelectArticle={handleSelectArticle}
             />
           ))}
 
@@ -382,6 +430,19 @@ export function ArticleStream({
             </p>
           </div>
         </div>
+      )}
+
+      {/* Distraction-free Reading Drawer with Keyboard Shortcuts */}
+      {activeArticle && (
+        <ReadingDrawer
+          article={activeArticle}
+          articles={articles}
+          onClose={handleCloseDrawer}
+          onToggleRead={toggleRead}
+          onToggleSave={toggleSave}
+          onSelectArticle={setSelectedArticle}
+          onLoadMore={hasMore ? loadMore : undefined}
+        />
       )}
     </div>
   );

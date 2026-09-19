@@ -202,4 +202,51 @@ class FeedCrawlerServiceTest {
         assertThat(result.newArticles()).isEqualTo(2);
         mockServer.verify();
     }
+
+    @Test
+    void testExtractImageFromMediaRssAndHtmlImg() {
+        String mediaRssXml = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/">
+                <channel>
+                    <title>Media Test Feed</title>
+                    <link>https://example.com</link>
+                    <description>Feed with media elements</description>
+                    <item>
+                        <title>Media RSS Article</title>
+                        <link>https://example.com/media-1</link>
+                        <guid>media-guid-1</guid>
+                        <description>Summary with text</description>
+                        <media:content url="https://cdn.example.com/media-thumb.jpg" medium="image" width="800" height="600"/>
+                    </item>
+                    <item>
+                        <title>HTML Img Article</title>
+                        <link>https://example.com/media-2</link>
+                        <guid>media-guid-2</guid>
+                        <description><![CDATA[<p><img src="https://cdn.example.com/embedded.png" alt="preview" /> Story description</p>]]></description>
+                    </item>
+                </channel>
+            </rss>
+        """;
+
+        Feed feed = new Feed(testUser, null, "https://example.com/media.xml", null, "Media Feed", null);
+        feed = feedRepository.save(feed);
+
+        mockServer.expect(requestTo("https://example.com/media.xml"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess(mediaRssXml, MediaType.APPLICATION_XML));
+
+        CrawlResult result = crawlerService.crawlFeed(feed);
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.newArticles()).isEqualTo(2);
+
+        Article mediaArticle = articleRepository.findByFeedIdAndGuid(feed.getId(), "media-guid-1").orElseThrow();
+        assertThat(mediaArticle.getImageUrl()).isEqualTo("https://cdn.example.com/media-thumb.jpg");
+
+        Article imgArticle = articleRepository.findByFeedIdAndGuid(feed.getId(), "media-guid-2").orElseThrow();
+        assertThat(imgArticle.getImageUrl()).isEqualTo("https://cdn.example.com/embedded.png");
+
+        mockServer.verify();
+    }
 }

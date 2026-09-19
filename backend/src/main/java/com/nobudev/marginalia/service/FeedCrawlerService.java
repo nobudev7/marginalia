@@ -21,6 +21,9 @@ import java.io.ByteArrayInputStream;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import org.jdom2.Element;
 
 /**
  * Core feed crawling engine. Fetches RSS/Atom feeds using conditional HTTP
@@ -204,10 +207,29 @@ public class FeedCrawlerService {
      * Processes a single feed entry. Returns true if a new article was saved,
      * false if it already existed (deduplicated by feed_id + guid).
      */
+    private static final Pattern IMG_SRC_PATTERN = Pattern.compile(
+            "<img[^>]+src=[\"'](https?://[^\"'\\s>]+)[\"']",
+            Pattern.CASE_INSENSITIVE
+    );
+
+    /**
+     * Processes a single feed entry. Returns true if a new article was saved,
+     * false if it already existed (deduplicated by feed_id + guid).
+     * Backfills missing thumbnail images for existing articles if now available.
+     */
     private boolean processEntry(Feed feed, SyndEntry entry) {
         String guid = extractGuid(entry);
 
-        if (articleRepository.existsByFeedIdAndGuid(feed.getId(), guid)) {
+        var existingOpt = articleRepository.findByFeedIdAndGuid(feed.getId(), guid);
+        if (existingOpt.isPresent()) {
+            Article existing = existingOpt.get();
+            if (existing.getImageUrl() == null) {
+                String img = extractImageUrl(entry, existing);
+                if (img != null) {
+                    existing.setImageUrl(img);
+                    articleRepository.save(existing);
+                }
+            }
             return false;
         }
 
@@ -236,18 +258,109 @@ public class FeedCrawlerService {
             article.setContent(article.getSummary());
         }
 
-        // Extract image from enclosures (common in media-rich feeds)
+        // Extract image using enclosures, Media RSS (<media:content>/<media:thumbnail>), or inline <img> tags
+        article.setImageUrl(extractImageUrl(entry, article));
+
+        articleRepository.save(article);
+        return true;
+    }
+
+    /**
+     * Extracts an image URL for the article using the following precedence:
+     * 1. Standard RSS / Atom enclosures with an image MIME type.
+     * 2. Media RSS (<media:content> or <media:thumbnail>) via ROME foreign markup.
+     * 3. First <img> tag found in the HTML content or summary.
+     */
+    private String extractImageUrl(SyndEntry entry, Article article) {
+        // 1. Check enclosures
         if (entry.getEnclosures() != null) {
             for (var enclosure : entry.getEnclosures()) {
                 if (enclosure.getType() != null && enclosure.getType().startsWith("image/")) {
-                    article.setImageUrl(enclosure.getUrl());
-                    break;
+                    if (enclosure.getUrl() != null && !enclosure.getUrl().isBlank()) {
+                        return enclosure.getUrl().trim();
+                    }
                 }
             }
         }
 
-        articleRepository.save(article);
-        return true;
+        // 2. Check Media RSS (<media:content> or <media:thumbnail>)
+        if (entry.getForeignMarkup() != null) {
+            for (var obj : entry.getForeignMarkup()) {
+                if (obj instanceof Element el) {
+                    String url = extractFromMediaElement(el);
+                    if (url != null && !url.isBlank()) {
+                        return url.trim();
+                    }
+                }
+            }
+        }
+
+        // 3. Check <img> tag inside HTML content or summary
+        String contentImg = extractFirstImgSrc(article.getContent());
+        if (contentImg != null) {
+            return contentImg;
+        }
+
+        return extractFirstImgSrc(article.getSummary());
+    }
+
+    private String extractFromMediaElement(Element el) {
+        String name = el.getName().toLowerCase();
+        String prefix = el.getNamespacePrefix() != null ? el.getNamespacePrefix().toLowerCase() : "";
+        String nsUri = el.getNamespaceURI() != null ? el.getNamespaceURI().toLowerCase() : "";
+
+        boolean isMediaNs = "media".equals(prefix) || nsUri.contains("mrss") || nsUri.contains("media");
+
+        if (isMediaNs || "content".equals(name) || "thumbnail".equals(name)) {
+            // Check <media:thumbnail url="..." />
+            if ("thumbnail".equals(name)) {
+                String url = el.getAttributeValue("url");
+                if (url != null && !url.isBlank()) {
+                    return url;
+                }
+            }
+
+            // Check <media:content url="..." />
+            if ("content".equals(name)) {
+                String medium = el.getAttributeValue("medium");
+                String type = el.getAttributeValue("type");
+                String url = el.getAttributeValue("url");
+
+                boolean isImage = "image".equalsIgnoreCase(medium)
+                        || (type != null && type.startsWith("image/"))
+                        || (url != null && (url.contains(".jpg") || url.contains(".jpeg") || url.contains(".png") || url.contains(".webp") || url.contains(".gif")));
+
+                if (url != null && !url.isBlank() && (isImage || (medium == null && type == null))) {
+                    return url;
+                }
+            }
+        }
+
+        // Recursively inspect children (e.g. <media:group>)
+        for (Element child : el.getChildren()) {
+            String childUrl = extractFromMediaElement(child);
+            if (childUrl != null) {
+                return childUrl;
+            }
+        }
+
+        return null;
+    }
+
+    private String extractFirstImgSrc(String html) {
+        if (html == null || html.isBlank()) {
+            return null;
+        }
+        Matcher matcher = IMG_SRC_PATTERN.matcher(html);
+        while (matcher.find()) {
+            String url = matcher.group(1).trim();
+            // Filter out tracking pixels and common analytics beacons
+            String lower = url.toLowerCase();
+            if (!lower.contains("feedburner.com") && !lower.contains("1x1") && !lower.contains("tracking") && !lower.contains("beacon")) {
+                return url;
+            }
+        }
+        return null;
     }
 
     /**

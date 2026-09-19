@@ -253,6 +253,39 @@ curl -s http://localhost:5173/api/auth/status
 * **Pagination Deduplication**: When appending paginated dispatches via `loadMore`, incoming article IDs are checked against an ID `Set` of existing items, preventing duplicate key errors if background crawling shifted page boundaries between requests.
 * **Default Subscription Unread-Only Stream State**: Subscriptions (feeds and folders) default to showing only unread articles upon selection. When all articles are read, a simple "All read" empty state is displayed with an inline action to view read articles. Added a toggle button at the top of the stream ("Show Read Articles" / "Show Unread Only") allowing users to view read articles at any time.
 
+---
 
+## 2026-09-19 — Phase 4 (Step 4.5): Reading Drawer & Keyboard Shortcuts
 
+### Scope & Goals
+* Build distraction-free `ReadingDrawer` with editorial typography (`Newsreader` serif, warm paper aesthetic, comfortable reading line height).
+* Integrate `DOMPurify` HTML sanitization for safe rendering of remote RSS/Atom article markup, embedded media, blockquotes, and code blocks.
+* Build sticky drawer action header featuring close control (`Escape`), publication info, next/previous navigation controls (`j`/`k`), position counter, read/unread toggle (`m`), bookmark star (`s`), link copying, external publisher link (`v`), and collapsible shortcut guide banner.
+* Implement `useKeyboardShortcuts` custom hook supporting `j` (next), `k` (previous), `m` (toggle read), `s` (toggle bookmark), `v` (open original publisher story in a new browser tab), and `Escape` (close drawer).
+* Guard keyboard shortcuts against active text-entry inputs (`INPUT`, `TEXTAREA`, `SELECT`, `contentEditable`).
+* Implement auto-mark-as-read on article open, body scroll locking, and automatic scroll-to-top on article transitions.
+* Support pressing `j` from the stream view to open the first article when the drawer is closed.
 
+### Verification Checklist
+- [x] Frontend compilation & bundle: `npm run build` (`dist/` generated with 0 errors in 532ms)
+- [x] Frontend linting: `npm run lint` (0 errors across 23 files)
+- [x] Backend test suite: `./mvnw test` (59 tests passed, 0 failures, 0 errors)
+- [x] Drawer slide-over: Clicking any article card smoothly slides open the reader drawer over a dimmed backdrop
+- [x] Keyboard cycling: Pressing `j` and `k` cycles forward and backward across loaded stream articles
+- [x] Read state toggle: Pressing `m` immediately toggles read/unread state visually and decrements/increments sidebar badge
+- [x] Bookmark state toggle: Pressing `s` toggles bookmark star and persists state to backend
+- [x] Original link shortcut: Pressing `v` opens the original publisher story in a new tab
+- [x] Drawer dismissal: Pressing `Escape`, clicking the `X` button, or clicking the backdrop blur closes the drawer cleanly
+- [x] Input focus safety: Typing in modal inputs (e.g. Add Feed dialog) does not accidentally trigger reading shortcuts
+- [x] Content security: `DOMPurify` strips harmful tags and ensures links open in new tabs (`target="_blank" rel="noopener noreferrer"`)
+
+### Technical Notes & Decisions
+* **DOMPurify Security Hook**: Applied `afterSanitizeAttributes` hook to enforce `target="_blank"` and `rel="noopener noreferrer"` on all anchors parsed from feed descriptions, preventing tab-nabbing security risks.
+* **Text Focus Protection**: `useKeyboardShortcuts` intercepts keyboard events and bypasses handling if `e.target` is an input, textarea, select, or contentEditable element, or if modifier keys (Meta, Ctrl, Alt) are pressed.
+* **Synchronized State Reflection**: `activeArticle` in `ArticleStream` dynamically syncs with the live `articles` array, ensuring optimistic read/save toggles inside the drawer immediately reflect in the drawer header and underlying stream card.
+* **Scroll & Viewport Management**: Added body scroll locking while the drawer is active and scrolls the reader viewport to top on every article change.
+* **Feed Ingestion Image Extraction Enhancement**: Enhanced `FeedCrawlerService` with a 3-tier image extraction strategy:
+  1. Standard RSS `<enclosure type="image/...">`
+  2. Media RSS (`<media:content medium="image">`, `<media:thumbnail>`, and `<media:group>`) via ROME `getForeignMarkup()`
+  3. Inline HTML `<img>` parsing in `<content:encoded>` and `<description>` (filtering out tracking pixels and beacons)
+  Additionally implemented thumbnail backfilling: if an article already exists in the database with a `null` `imageUrl`, re-crawling extracts and updates the image URL without altering the rest of the article record.
