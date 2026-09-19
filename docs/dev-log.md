@@ -125,3 +125,45 @@ docker exec marginalia-mysql-dev mysql -u marginalia_user -pmarginalia_pass marg
 * **Database-Backed Email Whitelist**: Added `V3__whitelist.sql` migration creating `whitelist_emails`. Whitelist entries are maintained in MySQL and managed via `AdminWhitelistController` (`/api/admin/whitelist`). Enforced anti-lockout safety measures: automatic seeding from `AUTH_WHITELIST_EMAILS` on startup, dual-source fallback (bootstrap admins are always authorized even if the database table is cleared), anti-self-deletion guard (admins cannot delete their own email), and bootstrap protection (bootstrap admins cannot be deleted via the API).
 * **Saved Articles Sort Remapping**: Resolved `PropertyReferenceException: No property 'publishedAt' found for type 'ArticleUserState'`. The controller endpoint `@PageableDefault` defaults sort to `publishedAt DESC` (appropriate for general `Article` queries). When `saved = true`, `ArticleService.getSavedArticles` queries `ArticleUserState` where `publishedAt` does not exist directly. Implemented `remapSortForSavedArticles` to map any `publishedAt` sort order to `savedAt DESC` so bookmarked articles are sorted chronologically by when they were saved.
 
+---
+
+## 2026-09-18 — Phase 4 (Step 4.1): Frontend Scaffolding, Design Tokens & Development Proxy
+
+### Scope & Goals
+* Scaffold Vite React (TypeScript) project in `frontend/`.
+* Configure Tailwind CSS with `@tailwindcss/typography`, PostCSS, Autoprefixer, Lucide icons, `clsx`, and `tailwind-merge`.
+* Establish warm editorial palette (`paper`, `ink`, `amberAccent`) and editorial typography (`Newsreader` serif, `Inter` sans).
+* Configure Vite development reverse-proxy routing `/api`, `/oauth2`, and `/logout` requests to the Spring Boot backend on port 8080.
+* Define TypeScript API models in `src/types/index.ts` mirroring backend DTOs.
+* Implement base HTTP client in `src/api/client.ts` supporting session cookies (`credentials: 'include'`).
+* Create starter shell in `src/App.tsx` displaying design tokens, typography, component previews, and live reverse-proxy verification against the Spring Boot backend.
+
+### Verification Checklist
+- [x] Frontend compilation & bundle: `npm run build` (`dist/` generated with 0 errors in 471ms)
+- [x] Vite dev server startup: `npm run dev` running on `http://127.0.0.1:5173`
+- [x] Development proxy validation: `curl -s http://127.0.0.1:5173/api/auth/status` forwards to Spring Boot on `:8080` returning `{"authenticated":false}`
+- [x] Frontend shell serving: `curl -s http://127.0.0.1:5173/` returns `<title>Marginalia</title>` and loads editorial font links
+- [x] Backend test suite regression check: `./mvnw test` (55 tests passed, 0 failures, 0 errors)
+
+### Useful Frontend Commands
+
+```bash
+# Start frontend development server with HMR
+cd frontend && npm run dev
+
+# Run TypeScript typecheck and production build
+cd frontend && npm run build
+
+# Preview production build locally
+cd frontend && npm run preview
+
+# Verify development proxy against running Spring Boot backend
+curl -s http://localhost:5173/api/auth/status
+```
+
+### Technical Notes & Decisions
+* **TypeScript Strict Mode Compatibility**: Declared class properties explicitly in `ApiError` (`src/api/client.ts`) rather than parameter properties (`public status: number`) to comply with TypeScript's `erasableSyntaxOnly` compiler option. Used `import type` for interfaces to comply with `verbatimModuleSyntax`.
+* **Session Cookie Preservation across Proxy**: Configured `credentials: 'include'` on all `apiFetch` requests so the `MARGINALIA_SESSION` cookie is preserved across calls made through Vite's development proxy without CORS configuration needed on the backend.
+* **Warm Editorial Design Tokens**: Defined `#FAF8F5` (body background), `#1C1917` (warm charcoal text), `#E8E1D9` (borders), and `#B45309` (warm amber accents) in `tailwind.config.js` to avoid cold neutral grays and provide a print-inspired aesthetic suitable for extended reading sessions.
+* **Backend DTO Type Parity**: Mirrored backend DTO records (`ArticleResponse`, `FeedResponse`, `CategoryResponse`, `AuthResponse`, `WhitelistResponse`) into TypeScript interfaces in `src/types/index.ts`, including Spring Data's `PageResponse<T>` wrapper for paginated endpoints.
+
