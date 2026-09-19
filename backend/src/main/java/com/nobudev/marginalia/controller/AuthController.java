@@ -101,11 +101,15 @@ public class AuthController {
         }
 
         String normalizedEmail = email.trim().toLowerCase();
-        User user = userService.findOrCreateUser(normalizedEmail, "Dev Tester", null);
 
         if (!whitelistService.isWhitelisted(normalizedEmail)) {
-            whitelistService.addEmail(normalizedEmail, "Dev Login Auto-Seed", "DEV_AUTH");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                    "error", "Access Denied",
+                    "message", "Email '" + normalizedEmail + "' is not on the authorized whitelist."
+            ));
         }
+
+        User user = userService.findOrCreateUser(normalizedEmail, "Dev Tester", null);
 
         SimpleGrantedAuthority authority = new SimpleGrantedAuthority("ROLE_USER");
         UsernamePasswordAuthenticationToken authToken =

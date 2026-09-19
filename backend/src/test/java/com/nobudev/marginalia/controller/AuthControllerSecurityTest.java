@@ -96,4 +96,20 @@ class AuthControllerSecurityTest {
         mockMvc.perform(post("/api/auth/logout"))
                 .andExpect(status().isNoContent());
     }
+
+    @Test
+    void testDevLoginWithWhitelistedEmailSucceeds() throws Exception {
+        mockMvc.perform(post("/api/auth/dev-login").param("email", "test@example.com"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email", is("test@example.com")))
+                .andExpect(jsonPath("$.message", is("Authenticated successfully for local development")));
+    }
+
+    @Test
+    void testDevLoginWithUnwhitelistedEmailReturns403() throws Exception {
+        mockMvc.perform(post("/api/auth/dev-login").param("email", "unwhitelisted@example.com"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error", is("Access Denied")))
+                .andExpect(jsonPath("$.message", is("Email 'unwhitelisted@example.com' is not on the authorized whitelist.")));
+    }
 }

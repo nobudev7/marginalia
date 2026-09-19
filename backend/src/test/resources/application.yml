@@ -35,4 +35,5 @@ app:
     interval: 1h
   auth:
     whitelist-emails: "test@example.com"
+    dev-mode: true
 

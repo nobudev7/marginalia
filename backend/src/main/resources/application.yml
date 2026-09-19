@@ -49,5 +49,6 @@ app:
   crawler:
     interval: 15m
   auth:
-    whitelist-emails: ${AUTH_WHITELIST_EMAILS:}
+    whitelist-emails: ${AUTH_WHITELIST_EMAILS:test@example.com}
     dev-mode: ${DEV_MODE:true}
+    frontend-url: ${FRONTEND_URL:http://localhost:5173}

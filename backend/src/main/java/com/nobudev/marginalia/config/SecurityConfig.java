@@ -3,6 +3,7 @@ package com.nobudev.marginalia.config;
 import com.nobudev.marginalia.service.CustomOAuth2UserService;
 import com.nobudev.marginalia.service.CustomOidcUserService;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
@@ -23,6 +24,9 @@ public class SecurityConfig {
 
     private final CustomOAuth2UserService customOAuth2UserService;
     private final CustomOidcUserService customOidcUserService;
+
+    @Value("${app.auth.frontend-url:http://localhost:5173}")
+    private String frontendUrl;
 
     public SecurityConfig(CustomOAuth2UserService customOAuth2UserService,
                           CustomOidcUserService customOidcUserService) {
@@ -63,10 +67,12 @@ public class SecurityConfig {
                     .oidcUserService(customOidcUserService)
                 )
                 .successHandler((request, response, authentication) -> {
-                    response.sendRedirect("/");
+                    String base = (frontendUrl != null && !frontendUrl.isBlank()) ? frontendUrl.replaceAll("/+$", "") : "";
+                    response.sendRedirect(base.isEmpty() ? "/" : base + "/");
                 })
                 .failureHandler((request, response, exception) -> {
-                    response.sendRedirect("/?error=unauthorized");
+                    String base = (frontendUrl != null && !frontendUrl.isBlank()) ? frontendUrl.replaceAll("/+$", "") : "";
+                    response.sendRedirect((base.isEmpty() ? "" : base) + "/?error=unauthorized");
                 })
             )
             .logout(logout -> logout

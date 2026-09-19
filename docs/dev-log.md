@@ -167,3 +167,31 @@ curl -s http://localhost:5173/api/auth/status
 * **Warm Editorial Design Tokens**: Defined `#FAF8F5` (body background), `#1C1917` (warm charcoal text), `#E8E1D9` (borders), and `#B45309` (warm amber accents) in `tailwind.config.js` to avoid cold neutral grays and provide a print-inspired aesthetic suitable for extended reading sessions.
 * **Backend DTO Type Parity**: Mirrored backend DTO records (`ArticleResponse`, `FeedResponse`, `CategoryResponse`, `AuthResponse`, `WhitelistResponse`) into TypeScript interfaces in `src/types/index.ts`, including Spring Data's `PageResponse<T>` wrapper for paginated endpoints.
 
+---
+
+## 2026-09-18 — Phase 4 (Step 4.2): Authentication & Session Gate
+
+### Scope & Goals
+* Implement `AuthContext` and `useAuth` hook managing authentication state, loading indicators, and error reporting.
+* Build minimalist `LoginPage` with editorial styling, branded Google and GitHub OAuth2 sign-in buttons, and whitelist access advisory.
+* Support unauthorized redirect feedback (`?error=unauthorized`) with dismissible alert banner.
+* Provide local development login shortcut (`/api/auth/dev-login`) for testing without live OAuth provider credentials.
+* Implement application `Header` displaying user display name, email, avatar, and logout trigger (`/api/auth/logout`).
+* Build authenticated `AppLayout` displaying active session credentials and persistence diagnostics.
+
+### Verification Checklist
+- [x] Compilation & bundle: `npm run build` (`dist/` generated with 0 errors in 768ms)
+- [x] Unauthenticated gate: Visiting `http://localhost:5173` without a session renders `LoginPage`
+- [x] Unauthorized query banner: Visiting `http://localhost:5173/?error=unauthorized` displays the amber whitelist access warning banner and cleans URL query string
+- [x] Local dev-login execution: Submitting `test@example.com` triggers `/api/auth/dev-login`, establishes MySQL-backed session cookie, and transitions instantly to `AppLayout`
+- [x] Session persistence: Reloading the browser preserves the session without returning to the login gate
+- [x] Logout flow: Clicking "Log Out" invokes `POST /api/auth/logout`, clears session cookie, and returns to `LoginPage`
+- [x] Regression testing: All 55 backend tests continue to pass (`./mvnw test`)
+
+### Technical Notes & Decisions
+* **Seamless Session Bootstrapping**: `AuthContext` calls `/api/auth/status` on mount (a non-throwing endpoint) to quietly discover existing sessions without generating 401 console error noise in the browser developer tools.
+* **URL Sanitization on Error Display**: When handling `?error=unauthorized`, `AuthContext` captures the message into state and uses `window.history.replaceState({}, document.title, window.location.pathname)` to strip the query string from the browser address bar, ensuring the alert does not persist upon subsequent manual page refreshes.
+* **Persistent Cookie Flow via Proxy**: The `MARGINALIA_SESSION` cookie is managed with `SameSite=Lax` and `HttpOnly`. Because the Vite dev server proxies `/api`, browser security treats all requests as same-origin, allowing cookies to attach automatically.
+* **Dev-Login Whitelist Enforcement**: Updated `AuthController.devLogin` to validate the submitted email against `AuthWhitelistService.isWhitelisted` instead of auto-whitelisting arbitrary addresses. Unwhitelisted addresses now return `403 Forbidden` and trigger an access denied alert banner on the frontend login card.
+
+
