@@ -12,6 +12,24 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: test-google-id
+            client-secret: test-google-secret
+            scope:
+              - openid
+              - profile
+              - email
+          github:
+            client-id: test-github-id
+            client-secret: test-github-secret
+            scope:
+              - read:user
+              - user:email
+
 app:
   crawler:
     interval: 1h

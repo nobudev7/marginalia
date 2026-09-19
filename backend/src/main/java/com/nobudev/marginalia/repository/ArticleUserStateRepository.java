@@ -16,7 +16,7 @@ public interface ArticleUserStateRepository extends JpaRepository<ArticleUserSta
     List<ArticleUserState> findByUserIdAndArticleIdIn(Long userId, List<Long> articleIds);
 
     @EntityGraph(attributePaths = {"article", "article.feed"})
-    Page<ArticleUserState> findByUserIdAndIsSavedTrueOrderBySavedAtDesc(Long userId, Pageable pageable);
+    Page<ArticleUserState> findByUserIdAndIsSavedTrue(Long userId, Pageable pageable);
 
     long countByUserIdAndIsReadFalse(Long userId);
 }

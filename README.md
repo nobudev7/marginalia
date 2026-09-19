@@ -34,7 +34,18 @@ Marginalia is designed to provide a clean, personal reading experience:
 ### Implementation Roadmap
 * [x] **Phase 1: Project Scaffolding & Database Setup** — Backend foundation, Flyway schema, JPA entities/repositories, local Docker compose.
 * [x] **Phase 2: Feed Ingestion Engine & OPML** — ROME crawler, conditional HTTP fetching, OPML import/export, and background scheduler.
-* [ ] **Phase 3: Security & Session Persistence** — OAuth2 client, email whitelist filter, persistent session cookies.
+* [x] **Phase 3: Security & Session Persistence** — OAuth2 client (Google & GitHub), database-backed email whitelist, persistent 90-day JDBC sessions.
 * [ ] **Phase 4: Frontend Development (React PWA)** — Responsive stream layout, reading pane, unread counters, and PWA manifest.
 * [ ] **Phase 5: Deployment & AWS Lightsail Automation** — Multi-stage Dockerfiles, Caddyfile, and automated S3 backup script.
+
+---
+
+## Documentation
+
+* [OAuth2 Setup Guide](docs/oauth2-setup-guide.md) — Step-by-step Google and GitHub OAuth2 configuration.
+* [Email Whitelist Administration Guide](docs/whitelist-admin-guide.md) — Managing access, safety measures, and admin REST endpoints.
+* [Future Expansion to Public Service (Path B)](docs/future-expansion-public-service.md) — Technical migration plan for global feed deduplication and multi-user scaling.
+* [Development Log](docs/dev-log.md) — Detailed changelog, architectural decisions, and API reference.
+
+
 

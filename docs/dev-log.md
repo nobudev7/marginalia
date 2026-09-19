@@ -100,6 +100,15 @@ docker exec marginalia-mysql-dev mysql -u marginalia_user -pmarginalia_pass marg
 | `GET` | `/api/articles/unread-count` | Get total unread articles count |
 | `POST` | `/api/opml/import` | Import feeds from OPML file (multipart `file`) |
 | `GET` | `/api/opml/export` | Export subscriptions as OPML 2.0 XML |
+| `GET` | `/api/auth/me` | Current authenticated user profile (401 if unauthenticated) |
+| `GET` | `/api/auth/status` | Non-throwing authentication status check (`authenticated: boolean`) |
+| `GET` | `/api/auth/providers` | Available OAuth2 provider initiation URLs (`google`, `github`) |
+| `POST` | `/api/auth/logout` | Invalidate session and clear session cookie (204 No Content) |
+| `GET`/`POST` | `/api/auth/dev-login` | Local dev authentication helper (`?email=...`, dev mode only) |
+| `GET` | `/api/admin/whitelist` | List all whitelisted emails (admin only) |
+| `POST` | `/api/admin/whitelist` | Add email to whitelist (`email`, `note`) (admin only) |
+| `DELETE` | `/api/admin/whitelist/{id}` | Remove email from whitelist by ID (admin only) |
+| `DELETE` | `/api/admin/whitelist?email=...` | Remove email from whitelist by address (admin only) |
 
 ### Technical Notes & Decisions
 * **Spring Boot 4 `RestClient` Configuration**: Built using `RestClient.builder()` with `JdkClientHttpRequestFactory`, 15s connect timeout, 30s read timeout, and automatic redirect following.
@@ -111,4 +120,8 @@ docker exec marginalia-mysql-dev mysql -u marginalia_user -pmarginalia_pass marg
 * **Single Responsibility Principle & Service Decoupling**: Fully separated `FeedService` (feed data CRUD operations) from `FeedCrawlerService` (remote HTTP crawling, XML parsing, article ingestion). `FeedService.addFeed` strictly persists the feed record and does not invoke the crawler. Client applications or background tasks trigger crawls independently (via `POST /api/feeds/{id}/refresh` or scheduled jobs), preventing cross-service coupling and eliminating network I/O from feed creation transactions.
 * **Fixed Unread Count for Sparse User State**: `getUnreadCount()` previously queried `article_user_state` rows where `is_read = false`, which returned 0 for newly crawled articles (no state row exists until a user interacts). Replaced with a JPQL `NOT EXISTS` subquery on `ArticleRepository` that counts all articles belonging to the user's feeds where no `is_read = true` state row exists. Articles with no state row are now correctly treated as unread.
 * **Batched `markAllAsRead()` to Eliminate N+1 Queries**: Previously looped N times calling individual `SELECT` + `INSERT/UPDATE` per article (2N database round-trips). Now batch-fetches all existing `ArticleUserState` rows in one `findByUserIdAndArticleIdIn` query, updates them in memory, creates new state objects for missing article IDs using `getReferenceById` (no SELECT), and persists everything in a single `saveAll` call. Reduces database round-trips from 2N to 2.
+* **Spring Session JDBC Persistence**: Added `spring-session-jdbc` and `V2__spring_session.sql` Flyway migration. Configured `@EnableJdbcHttpSession` with 90-day (`7,776,000s`) session lifetime, custom cookie name `MARGINALIA_SESSION`, `SameSite=Lax`, and `HttpOnly`. Sessions survive application and container restarts in MySQL.
+* **Multi-Provider OAuth2 & Whitelist Security**: Supported Google and GitHub OAuth2 sign-in. Enforced strict email whitelist verification (`app.auth.whitelist-emails`) via `AuthWhitelistService` in `CustomOAuth2UserService` and `CustomOidcUserService`. Handles private GitHub emails via `/user/emails` API fallback. Configured `HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)` so unauthenticated API requests return 401 rather than HTML redirect loops.
+* **Database-Backed Email Whitelist**: Added `V3__whitelist.sql` migration creating `whitelist_emails`. Whitelist entries are maintained in MySQL and managed via `AdminWhitelistController` (`/api/admin/whitelist`). Enforced anti-lockout safety measures: automatic seeding from `AUTH_WHITELIST_EMAILS` on startup, dual-source fallback (bootstrap admins are always authorized even if the database table is cleared), anti-self-deletion guard (admins cannot delete their own email), and bootstrap protection (bootstrap admins cannot be deleted via the API).
+* **Saved Articles Sort Remapping**: Resolved `PropertyReferenceException: No property 'publishedAt' found for type 'ArticleUserState'`. The controller endpoint `@PageableDefault` defaults sort to `publishedAt DESC` (appropriate for general `Article` queries). When `saved = true`, `ArticleService.getSavedArticles` queries `ArticleUserState` where `publishedAt` does not exist directly. Implemented `remapSortForSavedArticles` to map any `publishedAt` sort order to `savedAt DESC` so bookmarked articles are sorted chronologically by when they were saved.
 

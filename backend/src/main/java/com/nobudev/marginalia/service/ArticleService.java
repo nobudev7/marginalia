@@ -8,9 +8,13 @@ import com.nobudev.marginalia.repository.ArticleRepository;
 import com.nobudev.marginalia.repository.ArticleUserStateRepository;
 import com.nobudev.marginalia.repository.UserRepository;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.ArrayList;
 
 import java.util.List;
 import java.util.Map;
@@ -48,8 +52,28 @@ public class ArticleService {
     }
 
     public Page<ArticleResponse> getSavedArticles(Long userId, Pageable pageable) {
-        Page<ArticleUserState> savedStates = stateRepository.findByUserIdAndIsSavedTrueOrderBySavedAtDesc(userId, pageable);
+        Pageable adaptedPageable = remapSortForSavedArticles(pageable);
+        Page<ArticleUserState> savedStates = stateRepository.findByUserIdAndIsSavedTrue(userId, adaptedPageable);
         return savedStates.map(state -> ArticleResponse.from(state.getArticle(), state.isRead(), true));
+    }
+
+    private Pageable remapSortForSavedArticles(Pageable pageable) {
+        if (pageable.getSort().isUnsorted()) {
+            return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
+                    Sort.by(Sort.Direction.DESC, "savedAt"));
+        }
+
+        List<Sort.Order> orders = new ArrayList<>();
+        for (Sort.Order order : pageable.getSort()) {
+            if ("publishedAt".equalsIgnoreCase(order.getProperty())) {
+                // If caller passed publishedAt (e.g. from controller default @PageableDefault),
+                // remap to savedAt for bookmarked articles view.
+                orders.add(new Sort.Order(order.getDirection(), "savedAt"));
+            } else {
+                orders.add(order);
+            }
+        }
+        return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by(orders));
     }
 
     public long getUnreadCount(Long userId) {

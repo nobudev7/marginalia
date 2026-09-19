@@ -196,11 +196,16 @@ class ApiControllerTest {
         assertThat(article.isRead()).isTrue();
         assertThat(article.isSaved()).isTrue();
 
-        // Verify it appears in saved stream
+        // Verify it appears in saved stream (both unsorted and with publishedAt default sort)
         Page<ArticleResponse> savedArticles = articleController.getArticles(
                 null, null, true, PageRequest.of(0, 20));
         assertThat(savedArticles.getContent()).hasSize(1);
         assertThat(savedArticles.getContent().getFirst().id()).isEqualTo(testArticle.getId());
+
+        Page<ArticleResponse> savedWithDefaultSort = articleController.getArticles(
+                null, null, true, PageRequest.of(0, 20, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "publishedAt")));
+        assertThat(savedWithDefaultSort.getContent()).hasSize(1);
+        assertThat(savedWithDefaultSort.getContent().getFirst().id()).isEqualTo(testArticle.getId());
     }
 
     @Test

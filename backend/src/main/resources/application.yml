@@ -8,6 +8,24 @@ spring:
     virtual:
       enabled: true
 
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID:marginalia-google-client-id}
+            client-secret: ${GOOGLE_CLIENT_SECRET:marginalia-google-client-secret}
+            scope:
+              - openid
+              - profile
+              - email
+          github:
+            client-id: ${GITHUB_CLIENT_ID:marginalia-github-client-id}
+            client-secret: ${GITHUB_CLIENT_SECRET:marginalia-github-client-secret}
+            scope:
+              - read:user
+              - user:email
+
   datasource:
     url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:marginalia}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=UTF-8
     username: ${DB_USER:marginalia_user}
@@ -32,3 +50,4 @@ app:
     interval: 15m
   auth:
     whitelist-emails: ${AUTH_WHITELIST_EMAILS:}
+    dev-mode: ${DEV_MODE:true}
