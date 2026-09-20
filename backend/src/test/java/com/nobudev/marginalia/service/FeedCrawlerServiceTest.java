@@ -264,4 +264,40 @@ class FeedCrawlerServiceTest {
         assertThat(updated.getFetchErrorCount()).isEqualTo(1);
         assertThat(updated.getLastErrorMessage()).contains("blocked");
     }
+    @Test
+    void testCrawlerRejectsDoctypesAndXxe() {
+        String xxeXml = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <!DOCTYPE rss [ <!ENTITY xxe SYSTEM "file:///etc/passwd"> ]>
+            <rss version="2.0">
+                <channel>
+                    <title>XXE Feed &xxe;</title>
+                    <link>https://example.com</link>
+                    <description>Feed with XXE</description>
+                    <item>
+                        <title>Article with XXE &xxe;</title>
+                        <link>https://example.com/item1</link>
+                        <guid>guid-xxe-1</guid>
+                    </item>
+                </channel>
+            </rss>
+        """;
+
+        Feed feed = new Feed(testUser, null, "https://example.com/xxe.xml", null, "XXE Feed", null);
+        feed = feedRepository.save(feed);
+
+        mockServer.expect(requestTo("https://example.com/xxe.xml"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess(xxeXml, MediaType.APPLICATION_XML));
+
+        CrawlResult result = crawlerService.crawlFeed(feed);
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.error()).isNotNull();
+
+        Feed updated = feedRepository.findById(feed.getId()).orElseThrow();
+        assertThat(updated.getFetchErrorCount()).isEqualTo(1);
+        assertThat(articleRepository.findByFeedIdAndGuid(feed.getId(), "guid-xxe-1")).isEmpty();
+        mockServer.verify();
+    }
 }

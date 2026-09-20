@@ -111,7 +111,7 @@ public class FeedCrawlerService {
 
             // Parse with ROME
             SyndFeedInput input = new SyndFeedInput();
-            input.setAllowDoctypes(true);
+            input.setAllowDoctypes(false);
             SyndFeed syndFeed;
             try (XmlReader xmlReader = new XmlReader(new ByteArrayInputStream(fetchResult.body()))) {
                 syndFeed = input.build(xmlReader);

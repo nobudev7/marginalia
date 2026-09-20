@@ -475,3 +475,18 @@ curl -s http://localhost:5173/api/auth/status
 - [x] POST restriction & Cross-Site Login Attack prevention: `AuthControllerSecurityTest` and `DevModeDisabledSecurityTest` confirm `GET` returns 405 Method Not Allowed.
 - [x] Credential isolation: `sessionId` is omitted from `devLogin` response payload.
 - [x] Full test suite regression check: All 119 tests pass (`./mvnw test`).
+
+---
+
+## 2026-09-20 — Security Remediation (Item 7): XML External Entity (XXE) Prevention in Feed Crawler
+
+### Scope & Goals
+* Prevent XML External Entity (XXE) vulnerabilities in RSS/Atom parsing:
+  * In `backend/src/main/java/com/nobudev/marginalia/service/FeedCrawlerService.java`: configure ROME's `SyndFeedInput` with `setAllowDoctypes(false)` (matching the secure configuration in `OpmlService`).
+  * RSS and Atom specifications do not require document type declarations; disabling DOCTYPE support eliminates entity expansion attacks, local file disclosures (`SYSTEM "file:///..."`), and XML entity expansion denial-of-service vectors.
+* Add integration test:
+  * In `backend/src/test/java/com/nobudev/marginalia/service/FeedCrawlerServiceTest.java`: add `testCrawlerRejectsDoctypesAndXxe` to verify that feeds containing `<!DOCTYPE ... [ <!ENTITY ... > ]>` fail gracefully with error logged and zero articles ingested.
+
+### Verification Checklist
+- [x] XXE prevention verification: `FeedCrawlerServiceTest` verifies rejection of DOCTYPE declarations in crawled feeds.
+- [x] Full test suite regression check: All 120 tests pass (`./mvnw test`).
