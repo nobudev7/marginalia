@@ -505,3 +505,25 @@ curl -s http://localhost:5173/api/auth/status
 
 ### Verification Checklist
 - [x] Exclusion pattern verification: `git check-ignore -v terraform.tfstate terraform.tfvars .terraform/provider.tf .env .env.production` confirms matching on `terraform.tfstate`, `terraform.tfvars`, `.terraform/`, and `.env`.
+
+---
+
+## 2026-09-20 — Security Remediation (Item 9): Security Headers & Sanitized Exception Handling
+
+### Scope & Goals
+* Add standard HTTP security headers to Spring Security filter chain:
+  * In `backend/src/main/java/com/nobudev/marginalia/config/SecurityConfig.java`:
+    * `X-Frame-Options: DENY` (clickjacking prevention).
+    * `X-Content-Type-Options: nosniff` (MIME sniffing prevention).
+    * `Referrer-Policy: strict-origin-when-cross-origin` (referrer leakage prevention).
+* Sanitize unhandled exceptions across REST controllers:
+  * In `backend/src/main/java/com/nobudev/marginalia/controller/GlobalExceptionHandler.java`:
+    * Add catch-all `@ExceptionHandler(Exception.class)` that logs root causes internally via `log.error` while returning a generic `500 Internal Server Error` payload (`{"error": "An unexpected server error occurred"}`) to clients without stack traces.
+    * Transparently rethrow Spring MVC standard exceptions (`HttpRequestMethodNotSupportedException`, `NoResourceFoundException`, `ErrorResponse`) to retain precise 405/404 HTTP status dispatching.
+* Add integration test:
+  * `backend/src/test/java/com/nobudev/marginalia/config/SecurityHeadersAndExceptionTest.java`: verify presence of all 3 security headers on HTTP responses and assert exception handler sanitizes unhandled errors.
+
+### Verification Checklist
+- [x] Security headers verification: `SecurityHeadersAndExceptionTest` confirms `X-Frame-Options`, `X-Content-Type-Options`, and `Referrer-Policy` headers are active.
+- [x] Exception sanitization verification: Unhandled exceptions return generic 500 error map without leaking internal stack traces.
+- [x] Full test suite regression check: All 122 tests pass (`./mvnw test`).
