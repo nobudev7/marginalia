@@ -31,8 +31,8 @@ public class FeedService {
                 .toList();
     }
 
-    public FeedResponse getFeed(Long feedId) {
-        Feed feed = feedRepository.findById(feedId)
+    public FeedResponse getFeed(Long feedId, Long userId) {
+        Feed feed = feedRepository.findByIdAndUserId(feedId, userId)
                 .orElseThrow(() -> new IllegalArgumentException("Feed not found: " + feedId));
         return FeedResponse.from(feed);
     }
@@ -51,7 +51,7 @@ public class FeedService {
 
         Category category = null;
         if (request.categoryId() != null) {
-            category = categoryRepository.findById(request.categoryId())
+            category = categoryRepository.findByIdAndUserId(request.categoryId(), user.getId())
                     .orElseThrow(() -> new IllegalArgumentException(
                             "Category not found: " + request.categoryId()));
         }
@@ -68,8 +68,8 @@ public class FeedService {
     }
 
     @Transactional
-    public FeedResponse updateFeed(Long feedId, FeedRequest request) {
-        Feed feed = feedRepository.findById(feedId)
+    public FeedResponse updateFeed(Long feedId, FeedRequest request, Long userId) {
+        Feed feed = feedRepository.findByIdAndUserId(feedId, userId)
                 .orElseThrow(() -> new IllegalArgumentException("Feed not found: " + feedId));
 
         if (request.title() != null) {
@@ -77,7 +77,7 @@ public class FeedService {
         }
 
         if (request.categoryId() != null) {
-            Category category = categoryRepository.findById(request.categoryId())
+            Category category = categoryRepository.findByIdAndUserId(request.categoryId(), userId)
                     .orElseThrow(() -> new IllegalArgumentException(
                             "Category not found: " + request.categoryId()));
             feed.setCategory(category);
@@ -88,10 +88,9 @@ public class FeedService {
     }
 
     @Transactional
-    public void deleteFeed(Long feedId) {
-        if (!feedRepository.existsById(feedId)) {
-            throw new IllegalArgumentException("Feed not found: " + feedId);
-        }
-        feedRepository.deleteById(feedId);
+    public void deleteFeed(Long feedId, Long userId) {
+        Feed feed = feedRepository.findByIdAndUserId(feedId, userId)
+                .orElseThrow(() -> new IllegalArgumentException("Feed not found: " + feedId));
+        feedRepository.delete(feed);
     }
 }

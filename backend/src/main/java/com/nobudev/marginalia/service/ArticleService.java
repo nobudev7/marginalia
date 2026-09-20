@@ -37,12 +37,12 @@ public class ArticleService {
     }
 
     public Page<ArticleResponse> getArticlesByFeed(Long feedId, Long userId, Pageable pageable) {
-        Page<Article> articles = articleRepository.findByFeedIdOrderByPublishedAtDesc(feedId, pageable);
+        Page<Article> articles = articleRepository.findByFeedIdAndFeedUserIdOrderByPublishedAtDesc(feedId, userId, pageable);
         return enrichWithUserState(articles, userId);
     }
 
     public Page<ArticleResponse> getArticlesByCategory(Long categoryId, Long userId, Pageable pageable) {
-        Page<Article> articles = articleRepository.findByFeedCategoryIdOrderByPublishedAtDesc(categoryId, pageable);
+        Page<Article> articles = articleRepository.findByFeedCategoryIdAndFeedUserIdOrderByPublishedAtDesc(categoryId, userId, pageable);
         return enrichWithUserState(articles, userId);
     }
 
@@ -105,7 +105,7 @@ public class ArticleService {
     }
 
     public ArticleResponse getArticle(Long articleId, Long userId) {
-        Article article = articleRepository.findById(articleId)
+        Article article = articleRepository.findByIdAndFeedUserId(articleId, userId)
                 .orElseThrow(() -> new IllegalArgumentException("Article not found: " + articleId));
         var state = stateRepository.findByUserIdAndArticleId(userId, articleId);
         boolean isRead = state.map(ArticleUserState::isRead).orElse(false);
@@ -181,8 +181,9 @@ public class ArticleService {
     private ArticleUserState getOrCreateState(Long userId, Long articleId) {
         return stateRepository.findByUserIdAndArticleId(userId, articleId)
                 .orElseGet(() -> {
+                    Article article = articleRepository.findByIdAndFeedUserId(articleId, userId)
+                            .orElseThrow(() -> new IllegalArgumentException("Article not found: " + articleId));
                     User user = userRepository.getReferenceById(userId);
-                    Article article = articleRepository.getReferenceById(articleId);
                     return new ArticleUserState(user, article);
                 });
     }

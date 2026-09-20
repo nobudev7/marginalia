@@ -48,13 +48,16 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
     @EntityGraph(attributePaths = {"feed"})
     Optional<Article> findById(Long id);
 
+    @EntityGraph(attributePaths = {"feed"})
+    Optional<Article> findByIdAndFeedUserId(Long id, Long userId);
+
     Optional<Article> findByFeedIdAndGuid(Long feedId, String guid);
 
     @EntityGraph(attributePaths = {"feed"})
-    Page<Article> findByFeedIdOrderByPublishedAtDesc(Long feedId, Pageable pageable);
+    Page<Article> findByFeedIdAndFeedUserIdOrderByPublishedAtDesc(Long feedId, Long userId, Pageable pageable);
 
     @EntityGraph(attributePaths = {"feed"})
-    Page<Article> findByFeedCategoryIdOrderByPublishedAtDesc(Long categoryId, Pageable pageable);
+    Page<Article> findByFeedCategoryIdAndFeedUserIdOrderByPublishedAtDesc(Long categoryId, Long userId, Pageable pageable);
 
     @EntityGraph(attributePaths = {"feed"})
     Page<Article> findByFeedUserIdOrderByPublishedAtDesc(Long userId, Pageable pageable);

@@ -96,7 +96,7 @@ class MarginaliaApplicationTests {
         assertThat(feeds).hasSize(1);
         assertThat(feeds.get(0).getTitle()).isEqualTo("Tech Blog");
 
-        var articles = articleRepository.findByFeedIdOrderByPublishedAtDesc(feed.getId(), PageRequest.of(0, 10));
+        var articles = articleRepository.findByFeedIdAndFeedUserIdOrderByPublishedAtDesc(feed.getId(), user.getId(), PageRequest.of(0, 10));
         assertThat(articles.getContent()).hasSize(1);
         assertThat(articles.getContent().get(0).getTitle()).isEqualTo("Introduction to Marginalia");
 

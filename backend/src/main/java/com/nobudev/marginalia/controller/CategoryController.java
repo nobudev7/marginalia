@@ -39,12 +39,14 @@ public class CategoryController {
 
     @PutMapping("/{id}")
     public CategoryResponse updateCategory(@PathVariable Long id, @Valid @RequestBody CategoryRequest request) {
-        return categoryService.updateCategory(id, request);
+        User user = userService.getCurrentUser();
+        return categoryService.updateCategory(id, request, user.getId());
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteCategory(@PathVariable Long id) {
-        categoryService.deleteCategory(id);
+        User user = userService.getCurrentUser();
+        categoryService.deleteCategory(id, user.getId());
         return ResponseEntity.noContent().build();
     }
 }

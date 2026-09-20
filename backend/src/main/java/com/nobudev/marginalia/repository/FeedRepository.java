@@ -15,6 +15,11 @@ public interface FeedRepository extends JpaRepository<Feed, Long> {
     Optional<Feed> findById(Long id);
 
     @EntityGraph(attributePaths = {"category"})
+    Optional<Feed> findByIdAndUserId(Long id, Long userId);
+
+    boolean existsByIdAndUserId(Long id, Long userId);
+
+    @EntityGraph(attributePaths = {"category"})
     List<Feed> findByUserIdOrderByTitleAsc(Long userId);
 
     List<Feed> findByUserId(Long userId);

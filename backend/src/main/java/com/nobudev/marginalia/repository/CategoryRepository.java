@@ -9,6 +9,8 @@ import java.util.Optional;
 
 @Repository
 public interface CategoryRepository extends JpaRepository<Category, Long> {
+    Optional<Category> findByIdAndUserId(Long id, Long userId);
+    boolean existsByIdAndUserId(Long id, Long userId);
     List<Category> findByUserIdOrderBySortOrderAscNameAsc(Long userId);
     Optional<Category> findByUserIdAndName(Long userId, String name);
 }

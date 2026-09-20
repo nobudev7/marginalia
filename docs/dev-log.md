@@ -377,4 +377,47 @@ curl -s http://localhost:5173/api/auth/status
 - [x] Fail-closed verification: `UserServiceTest` confirms `AccessDeniedException` on unauthenticated requests.
 - [x] Full test suite passes: All 66 tests pass (`./mvnw test`).
 
+---
 
+## 2026-09-19 — Security Remediation (Item 3): Insecure Direct Object Reference (IDOR) Fix for Feeds & Categories
+
+### Scope & Goals
+* Enforce strict user ownership scoping across all feed and category CRUD operations to eliminate IDOR vulnerabilities:
+  * Add `findByIdAndUserId` and `existsByIdAndUserId` to `FeedRepository` and `CategoryRepository`.
+  * Update `FeedService.getFeed`, `updateFeed`, and `deleteFeed` to scope queries by `userId`, throwing 404/IllegalArgumentException if an entity is not owned by the requesting user.
+  * Update `FeedService.addFeed` to verify that any supplied `categoryId` belongs to the requesting user before assigning.
+  * Update `CategoryService.updateCategory` and `deleteCategory` to scope lookups by `userId`.
+  * Update `FeedController` and `CategoryController` to retrieve authenticated `user.getId()` and pass it to all service calls.
+  * Add feed ownership verification in `FeedController.refreshFeed` to prevent unauthorized users from triggering crawler requests on feeds they do not own.
+* Add integration test `backend/src/test/java/com/nobudev/marginalia/service/FeedAndCategoryOwnershipTest.java` verifying cross-user isolation:
+  * User A cannot read, update, or delete User B's feeds.
+  * User A cannot update or delete User B's categories.
+  * User A cannot assign their feed to User B's category.
+
+### Verification Checklist
+- [x] IDOR prevention verification: `FeedAndCategoryOwnershipTest` validates cross-user access attempts fail with `IllegalArgumentException` (404/400).
+- [x] Full test suite regression check: All 73 tests pass (`./mvnw test`).
+
+---
+
+## 2026-09-19 — Security Remediation (Item 4): Insecure Direct Object Reference (IDOR) Fix for Articles & Reading State
+
+### Scope & Goals
+* Enforce strict user ownership scoping across article retrieval and state modification to eliminate IDOR vulnerabilities:
+  * In `backend/src/main/java/com/nobudev/marginalia/repository/ArticleRepository.java`:
+    * Add `findByIdAndFeedUserId(Long id, Long userId)`.
+    * Scope `findByFeedIdAndFeedUserIdOrderByPublishedAtDesc(Long feedId, Long userId, Pageable pageable)`.
+    * Scope `findByFeedCategoryIdAndFeedUserIdOrderByPublishedAtDesc(Long categoryId, Long userId, Pageable pageable)`.
+  * In `backend/src/main/java/com/nobudev/marginalia/service/ArticleService.java`:
+    * Update `getArticlesByFeed` and `getArticlesByCategory` to pass authenticated user ID.
+    * Update `getArticle` to lookup via `findByIdAndFeedUserId(id, user.getId())`, throwing 404/IllegalArgumentException for unowned articles.
+    * Update `getOrCreateState` to lookup the underlying article via `findByIdAndFeedUserId(articleId, user.getId())`, ensuring users cannot mark as read or bookmark articles from another user's feeds.
+* Add integration test `backend/src/test/java/com/nobudev/marginalia/service/ArticleOwnershipTest.java` verifying cross-user isolation:
+  * User A cannot read User B's feed articles or category articles.
+  * User A cannot fetch User B's single article by ID.
+  * User A cannot mark User B's article as read.
+  * User A cannot toggle bookmark on User B's article.
+
+### Verification Checklist
+- [x] IDOR prevention verification: `ArticleOwnershipTest` verifies 6 security test cases confirming cross-user isolation and access denials.
+- [x] Full test suite regression check: All 79 tests pass (`./mvnw test`).

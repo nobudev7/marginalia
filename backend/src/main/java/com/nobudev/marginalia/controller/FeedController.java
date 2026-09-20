@@ -38,7 +38,8 @@ public class FeedController {
 
     @GetMapping("/{id}")
     public FeedResponse getFeed(@PathVariable Long id) {
-        return feedService.getFeed(id);
+        User user = userService.getCurrentUser();
+        return feedService.getFeed(id, user.getId());
     }
 
     @PostMapping
@@ -50,17 +51,22 @@ public class FeedController {
 
     @PutMapping("/{id}")
     public FeedResponse updateFeed(@PathVariable Long id, @Valid @RequestBody FeedRequest request) {
-        return feedService.updateFeed(id, request);
+        User user = userService.getCurrentUser();
+        return feedService.updateFeed(id, request, user.getId());
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteFeed(@PathVariable Long id) {
-        feedService.deleteFeed(id);
+        User user = userService.getCurrentUser();
+        feedService.deleteFeed(id, user.getId());
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/{id}/refresh")
     public CrawlResult refreshFeed(@PathVariable Long id) {
+        User user = userService.getCurrentUser();
+        // Verify ownership before triggering crawl
+        feedService.getFeed(id, user.getId());
         return crawlerService.crawlFeed(id);
     }
 }

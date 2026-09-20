@@ -43,8 +43,8 @@ public class CategoryService {
     }
 
     @Transactional
-    public CategoryResponse updateCategory(Long categoryId, CategoryRequest request) {
-        Category category = categoryRepository.findById(categoryId)
+    public CategoryResponse updateCategory(Long categoryId, CategoryRequest request, Long userId) {
+        Category category = categoryRepository.findByIdAndUserId(categoryId, userId)
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Category not found: " + categoryId));
 
@@ -60,10 +60,9 @@ public class CategoryService {
     }
 
     @Transactional
-    public void deleteCategory(Long categoryId) {
-        if (!categoryRepository.existsById(categoryId)) {
-            throw new IllegalArgumentException("Category not found: " + categoryId);
-        }
-        categoryRepository.deleteById(categoryId);
+    public void deleteCategory(Long categoryId, Long userId) {
+        Category category = categoryRepository.findByIdAndUserId(categoryId, userId)
+                .orElseThrow(() -> new IllegalArgumentException("Category not found: " + categoryId));
+        categoryRepository.delete(category);
     }
 }
