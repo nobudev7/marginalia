@@ -490,3 +490,18 @@ curl -s http://localhost:5173/api/auth/status
 ### Verification Checklist
 - [x] XXE prevention verification: `FeedCrawlerServiceTest` verifies rejection of DOCTYPE declarations in crawled feeds.
 - [x] Full test suite regression check: All 120 tests pass (`./mvnw test`).
+
+---
+
+## 2026-09-20 — Security Remediation (Item 8): Infrastructure Secret & Terraform Exclusions in `.gitignore`
+
+### Scope & Goals
+* Harden `.gitignore` against accidental repository commits of cloud infrastructure states and secrets:
+  * Ignore Terraform workspace artifacts: `**/.terraform/*`, `*.tfstate`, `*.tfstate.*`, `crash.log`.
+  * Ignore Terraform variable definitions: `*.tfvars`, `*.tfvars.json`.
+  * Ignore Terraform overrides: `override.tf`, `override.tf.json`, `*_override.tf`, `*_override.tf.json`.
+  * Ignore Terraform CLI configuration: `.terraformrc`, `terraform.rc`.
+  * Explicitly ignore root and nested environment secret files: `.env`, `.env.*`.
+
+### Verification Checklist
+- [x] Exclusion pattern verification: `git check-ignore -v terraform.tfstate terraform.tfvars .terraform/provider.tf .env .env.production` confirms matching on `terraform.tfstate`, `terraform.tfvars`, `.terraform/`, and `.env`.
