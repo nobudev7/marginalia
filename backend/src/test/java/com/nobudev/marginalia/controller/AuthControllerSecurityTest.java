@@ -102,7 +102,14 @@ class AuthControllerSecurityTest {
         mockMvc.perform(post("/api/auth/dev-login").param("email", "test@example.com"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.email", is("test@example.com")))
-                .andExpect(jsonPath("$.message", is("Authenticated successfully for local development")));
+                .andExpect(jsonPath("$.message", is("Authenticated successfully for local development")))
+                .andExpect(jsonPath("$.sessionId").doesNotExist());
+    }
+
+    @Test
+    void testDevLoginGetMethodNotAllowed() throws Exception {
+        mockMvc.perform(get("/api/auth/dev-login").param("email", "test@example.com"))
+                .andExpect(status().isMethodNotAllowed());
     }
 
     @Test

@@ -36,4 +36,7 @@ app:
   auth:
     whitelist-emails: "test@example.com"
     dev-mode: true
+    session:
+      secure-cookie: false
+
 

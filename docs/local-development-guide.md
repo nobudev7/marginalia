@@ -77,14 +77,11 @@ docker run -d \
 
 When the `dev` profile is active, you can authenticate without setting up Google Cloud Console or GitHub OAuth2 applications.
 
-### In Your Browser
-1. Start the backend with the `dev` profile.
-2. Open your browser to:
-   ```
-   http://localhost:8080/api/auth/dev-login?email=test@example.com
-   ```
+### In Frontend or Terminal
+1. Start the backend with the `dev` profile and frontend dev server (`npm run dev`).
+2. On the frontend login screen (`http://localhost:5173`), click **"Sign in as Dev User"** (which dispatches a `POST` request to `/api/auth/dev-login`).
 3. The server sets a session cookie (`MARGINALIA_SESSION`).
-4. You can now access protected endpoints (such as `http://localhost:8080/api/feeds` or `http://localhost:8080/api/articles`).
+4. You are instantly authenticated into Marginalia.
 
 ### In Terminal (`curl`)
 Save the session cookie to a local jar:

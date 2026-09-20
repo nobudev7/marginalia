@@ -452,3 +452,26 @@ curl -s http://localhost:5173/api/auth/status
 - [x] SSRF prevention verification: `UrlSafetyValidatorTest` validates rejection of loopback, private IPs, AWS metadata IPs, and IPv6 bypasses.
 - [x] Service-level enforcement: `FeedServiceTransactionTest` and `FeedCrawlerServiceTest` assert rejection and failure recording on unsafe URLs.
 - [x] Full test suite regression check: All 118 tests pass (`./mvnw test`).
+
+---
+
+## 2026-09-20 — Security Remediation (Item 6): Cookie & Session Hardening
+
+### Scope & Goals
+* Enforce `Secure` cookie flag by default to protect session tokens against unencrypted interception:
+  * In `backend/src/main/java/com/nobudev/marginalia/config/SessionConfig.java`: default `secureCookie` to `true` (`${app.auth.session.secure-cookie:true}`).
+  * In `backend/src/main/resources/application.yml`: expose `app.auth.session.secure-cookie: ${SECURE_COOKIE:true}` with safe production default.
+  * In `backend/src/main/resources/application-dev.yml` and `backend/src/test/resources/application.yml`: explicitly set `secure-cookie: false` for plain HTTP local development and automated testing.
+* Restrict dev-login and eliminate session credential leakage:
+  * In `backend/src/main/java/com/nobudev/marginalia/controller/AuthController.java`: restrict `/api/auth/dev-login` to `@PostMapping` only, rejecting `GET` requests with `405 Method Not Allowed`. This mitigates Cross-Site Login Attacks (where third-party sites trigger state-changing GET requests via `<img>` tags or browser prefetching to fixate or replace the developer's active session).
+  * Remove `sessionId` from `devLogin` JSON response body; session association is maintained exclusively through HTTP-only cookies, preventing script-based token extraction.
+* Update documentation (`docs/oauth2-setup-guide.md`, `docs/local-development-guide.md`) to reflect `POST`-only usage.
+* Add unit and integration tests:
+  * `backend/src/test/java/com/nobudev/marginalia/controller/AuthControllerSecurityTest.java`: assert `sessionId` is not present in response and verify `GET /api/auth/dev-login` returns 405.
+  * `backend/src/test/java/com/nobudev/marginalia/controller/DevModeDisabledSecurityTest.java`: verify `GET` returns 405 and `POST` returns 404 when `dev-mode` is disabled.
+
+### Verification Checklist
+- [x] Secure cookie verification: Session cookie defaults to `Secure` in production configuration.
+- [x] POST restriction & Cross-Site Login Attack prevention: `AuthControllerSecurityTest` and `DevModeDisabledSecurityTest` confirm `GET` returns 405 Method Not Allowed.
+- [x] Credential isolation: `sessionId` is omitted from `devLogin` response payload.
+- [x] Full test suite regression check: All 119 tests pass (`./mvnw test`).

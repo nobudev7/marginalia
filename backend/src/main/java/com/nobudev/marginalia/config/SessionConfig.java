@@ -18,7 +18,7 @@ public class SessionConfig {
     @Value("${app.auth.session.cookie-name:MARGINALIA_SESSION}")
     private String cookieName;
 
-    @Value("${app.auth.session.secure-cookie:false}")
+    @Value("${app.auth.session.secure-cookie:true}")
     private boolean secureCookie;
 
     @Bean

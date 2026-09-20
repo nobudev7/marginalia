@@ -252,7 +252,7 @@ During local development and testing, you may want to test feed subscriptions, c
 Marginalia includes a local helper endpoint at `/api/auth/dev-login`.
 
 ### How It Works
-* **Endpoint**: `GET` or `POST` `/api/auth/dev-login?email=<email>` (defaults to `test@example.com`)
+* **Endpoint**: `POST` `/api/auth/dev-login?email=<email>` (defaults to `test@example.com`)
 * **Behavior**:
   1. Finds or creates the `User` in the database.
   2. Injects an authenticated `ROLE_USER` principal into Spring Security's context.
@@ -272,17 +272,10 @@ Marginalia includes a local helper endpoint at `/api/auth/dev-login`.
 
 ### Usage Examples
 
-#### In Your Browser
-Open:
-```
-http://localhost:8080/api/auth/dev-login?email=test@example.com
-```
-Your browser stores the session cookie. You can now immediately view protected API endpoints (such as `http://localhost:8080/api/feeds` or `http://localhost:8080/api/articles`) directly in the browser.
-
 #### In Terminal (`curl`)
 Save the session cookie to a local file (`cookies.txt`):
 ```bash
-curl -c cookies.txt "http://localhost:8080/api/auth/dev-login?email=test@example.com"
+curl -c cookies.txt -X POST "http://localhost:8080/api/auth/dev-login?email=test@example.com"
 ```
 Use that cookie for subsequent requests:
 ```bash

@@ -94,7 +94,7 @@ public class AuthController {
      * without requiring real Google/GitHub OAuth2 credentials.
      * Active only when app.auth.dev-mode=true (disabled in production).
      */
-    @RequestMapping(value = "/dev-login", method = {RequestMethod.GET, RequestMethod.POST})
+    @PostMapping("/dev-login")
     public ResponseEntity<Map<String, Object>> devLogin(
             @RequestParam(defaultValue = "test@example.com") String email,
             HttpServletRequest request) {
@@ -127,8 +127,7 @@ public class AuthController {
         return ResponseEntity.ok(Map.of(
                 "message", "Authenticated successfully for local development",
                 "email", normalizedEmail,
-                "userId", user.getId(),
-                "sessionId", session.getId()
+                "userId", user.getId()
         ));
     }
 }

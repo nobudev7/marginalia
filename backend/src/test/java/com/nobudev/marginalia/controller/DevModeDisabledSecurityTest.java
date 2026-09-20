@@ -43,8 +43,8 @@ class DevModeDisabledSecurityTest {
     }
 
     @Test
-    void testDevLoginGetReturns404WhenDevModeDisabled() throws Exception {
+    void testDevLoginGetReturns405MethodNotAllowed() throws Exception {
         mockMvc.perform(get("/api/auth/dev-login").param("email", "test@example.com"))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isMethodNotAllowed());
     }
 }
