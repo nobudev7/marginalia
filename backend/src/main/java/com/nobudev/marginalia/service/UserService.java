@@ -2,6 +2,7 @@ package com.nobudev.marginalia.service;
 
 import com.nobudev.marginalia.entity.User;
 import com.nobudev.marginalia.repository.UserRepository;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -25,8 +26,7 @@ public class UserService {
 
     /**
      * Returns the currently authenticated user from SecurityContextHolder.
-     * Falls back to the first user in the database if called outside an authenticated
-     * web request (e.g. direct controller test invocations).
+     * Throws AccessDeniedException if called outside an authenticated context.
      */
     @Transactional
     public User getCurrentUser() {
@@ -41,11 +41,7 @@ public class UserService {
             }
         }
 
-        // Fallback for tests / non-web execution
-        return userRepository.findAll().stream()
-                .findFirst()
-                .orElseGet(() -> userRepository.save(
-                        new User("dev@marginalia.local", "Dev User", null)));
+        throw new AccessDeniedException("No authenticated user found in security context");
     }
 
     /**

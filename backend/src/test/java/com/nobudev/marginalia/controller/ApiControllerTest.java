@@ -77,6 +77,13 @@ class ApiControllerTest {
         when(crawlerService.crawlFeed(any(Long.class))).thenReturn(new CrawlResult(0, 0, false, null));
 
         testUser = userRepository.save(new User("api-test@marginalia.local", "API Tester", null));
+
+        org.springframework.security.core.context.SecurityContext context =
+                org.springframework.security.core.context.SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                testUser.getEmail(), null, List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_USER"))));
+        org.springframework.security.core.context.SecurityContextHolder.setContext(context);
+
         testCategory = categoryRepository.save(new Category(testUser, "News", 1));
         testFeed = feedRepository.save(new Feed(testUser, testCategory, "https://example.com/feed.xml", "https://example.com", "Example News", "Desc"));
         testArticle = articleRepository.save(new Article(
@@ -90,6 +97,11 @@ class ApiControllerTest {
                 null,
                 LocalDateTime.now()
         ));
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void tearDown() {
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
     }
 
     // --- Category Controller ---

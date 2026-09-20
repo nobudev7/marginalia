@@ -44,11 +44,17 @@ class NonTransactionalImportTest {
 
     @BeforeEach
     void setUp() {
-        userRepository.save(new User("nontx-test@marginalia.local", "Non-Tx Tester", null));
+        User user = userRepository.save(new User("nontx-test@marginalia.local", "Non-Tx Tester", null));
+        org.springframework.security.core.context.SecurityContext context =
+                org.springframework.security.core.context.SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                user.getEmail(), null, java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_USER"))));
+        org.springframework.security.core.context.SecurityContextHolder.setContext(context);
     }
 
     @AfterEach
     void tearDown() {
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
         feedRepository.deleteAll();
         categoryRepository.deleteAll();
         userRepository.deleteAll();

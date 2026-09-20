@@ -359,3 +359,22 @@ curl -s http://localhost:5173/api/auth/status
 - [x] All 63 backend tests pass (`./mvnw test`).
 - [x] Whitelist default is empty: startup without `AUTH_WHITELIST_EMAILS` seeds zero bootstrap administrator records into database.
 
+---
+
+## 2026-09-19 — Security Remediation (Item 2): Fail-Closed Identity Resolution in UserService
+
+### Scope & Goals
+* Eliminate unauthenticated identity assumption fallback in `backend/src/main/java/com/nobudev/marginalia/service/UserService.java`:
+  * Remove fallback that previously returned `userRepository.findAll().stream().findFirst()` when no authenticated context existed.
+  * Throw `AccessDeniedException("No authenticated user found in security context")` if `getCurrentUser()` is called outside an authenticated context.
+* Add unit tests in `backend/src/test/java/com/nobudev/marginalia/service/UserServiceTest.java` verifying:
+  * Valid authentication returns the user.
+  * Unauthenticated context throws `AccessDeniedException`.
+  * Anonymous token throws `AccessDeniedException`.
+* Update direct-invocation test cases in `backend/src/test/java/com/nobudev/marginalia/controller/ApiControllerTest.java` and `NonTransactionalImportTest.java` to explicitly establish and tear down authenticated `SecurityContext`.
+
+### Verification Checklist
+- [x] Fail-closed verification: `UserServiceTest` confirms `AccessDeniedException` on unauthenticated requests.
+- [x] Full test suite passes: All 66 tests pass (`./mvnw test`).
+
+
