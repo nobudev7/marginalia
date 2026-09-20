@@ -12,6 +12,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+import com.nobudev.marginalia.util.UrlSafetyValidator;
+
 @Service
 @Transactional(readOnly = true)
 public class FeedService {
@@ -44,6 +46,8 @@ public class FeedService {
      */
     @Transactional
     public FeedResponse addFeed(FeedRequest request, User user) {
+        UrlSafetyValidator.validate(request.feedUrl());
+
         feedRepository.findByUserIdAndFeedUrl(user.getId(), request.feedUrl())
                 .ifPresent(existing -> {
                     throw new IllegalArgumentException("Feed already subscribed: " + request.feedUrl());

@@ -249,4 +249,19 @@ class FeedCrawlerServiceTest {
 
         mockServer.verify();
     }
+
+    @Test
+    void testCrawlerRejectsSsrfFeedUrl() {
+        Feed feed = new Feed(testUser, null, "http://169.254.169.254/latest/meta-data", null, "Metadata Feed", null);
+        feed = feedRepository.save(feed);
+
+        CrawlResult result = crawlerService.crawlFeed(feed);
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.error()).contains("blocked");
+
+        Feed updated = feedRepository.findById(feed.getId()).orElseThrow();
+        assertThat(updated.getFetchErrorCount()).isEqualTo(1);
+        assertThat(updated.getLastErrorMessage()).contains("blocked");
+    }
 }

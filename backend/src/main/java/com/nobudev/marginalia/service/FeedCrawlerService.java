@@ -16,6 +16,7 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import com.nobudev.marginalia.util.UrlSafetyValidator;
 
 import java.io.ByteArrayInputStream;
 import java.time.LocalDateTime;
@@ -161,6 +162,7 @@ public class FeedCrawlerService {
      * including 304 Not Modified which has no response body.
      */
     private FetchResult fetchFeed(Feed feed) {
+        UrlSafetyValidator.validate(feed.getFeedUrl());
         RestClient.RequestHeadersSpec<?> spec = restClient.get().uri(feed.getFeedUrl());
 
         if (feed.getEtag() != null && !feed.getEtag().isEmpty()) {

@@ -9,6 +9,7 @@ import com.nobudev.marginalia.repository.FeedRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import com.nobudev.marginalia.util.UrlSafetyValidator;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
@@ -198,6 +199,13 @@ public class OpmlService {
     private Feed importFeedOutline(Element outline, User user, Category category) {
         String xmlUrl = outline.getAttribute("xmlUrl");
         if (xmlUrl == null || xmlUrl.isBlank()) {
+            return null;
+        }
+
+        try {
+            UrlSafetyValidator.validate(xmlUrl);
+        } catch (Exception e) {
+            log.warn("Skipping unsafe feed URL in OPML import: {} - {}", xmlUrl, e.getMessage());
             return null;
         }
 

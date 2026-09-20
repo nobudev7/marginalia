@@ -89,4 +89,12 @@ class FeedServiceTransactionTest {
             feedService.addFeed(request, testUser);
         });
     }
+
+    @Test
+    void testAddFeedRejectsSsrfUrls() {
+        FeedRequest ssrfRequest = new FeedRequest("http://169.254.169.254/latest/meta-data", "SSRF", null);
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () -> {
+            feedService.addFeed(ssrfRequest, testUser);
+        });
+    }
 }

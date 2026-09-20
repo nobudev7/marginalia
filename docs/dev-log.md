@@ -421,3 +421,34 @@ curl -s http://localhost:5173/api/auth/status
 ### Verification Checklist
 - [x] IDOR prevention verification: `ArticleOwnershipTest` verifies 6 security test cases confirming cross-user isolation and access denials.
 - [x] Full test suite regression check: All 79 tests pass (`./mvnw test`).
+
+---
+
+## 2026-09-20 — Security Remediation (Item 5): SSRF Protection in Feed Crawler & Subscription Pipeline
+
+### Scope & Goals
+* Implement defensive Server-Side Request Forgery (SSRF) validation in `backend/src/main/java/com/nobudev/marginalia/util/UrlSafetyValidator.java`:
+  * Validate URL scheme strictly against `http` and `https` (rejecting `file://`, `ftp://`, `gopher://`, `javascript:`, etc.).
+  * Resolve target hostname via `InetAddress.getAllByName(host)` and block access if any resolved IP address belongs to:
+    * Loopback addresses (`127.0.0.0/8`, `::1`, `localhost`).
+    * Private network ranges (RFC 1918: `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, and RFC 4193: `fc00::/7`).
+    * Link-local addresses (`169.254.0.0/16` including cloud metadata service `169.254.169.254`, and `fe80::/10`).
+    * AnyLocal addresses (`0.0.0.0`), multicast addresses, and IPv4-mapped IPv6 embedded addresses (`::ffff:x.x.x.x`).
+* Integrate URL safety validation across ingestion entry points:
+  * In `FeedService.addFeed`: validate feed URL prior to database persistence.
+  * In `FeedCrawlerService.fetchFeed`: validate feed URL prior to opening HTTP connection.
+  * In `OpmlService.importFeedOutline`: validate feed URL, gracefully skipping unsafe internal endpoints.
+* Add unit and integration tests:
+  * `backend/src/test/java/com/nobudev/marginalia/util/UrlSafetyValidatorTest.java`: test coverage across loopback, RFC 1918 private subnets, cloud metadata IPs, disallowed schemes, and IPv6 encodings.
+  * `backend/src/test/java/com/nobudev/marginalia/service/FeedServiceTransactionTest.java`: verify `addFeed` rejects SSRF attempts.
+  * `backend/src/test/java/com/nobudev/marginalia/service/FeedCrawlerServiceTest.java`: verify crawler marks feed as failed when hitting blocked IP.
+* Note on validation `FeedCrawlerService.fetchFeed`
+  * Protection Against DNS Rebinding - Addresses Time-of-Check to Time-of-Use vulnerability in case the attacker changes DNS record to point to a different IP address after the feed is added.
+  * Guarding Non-API Ingestion Paths and Legacy Records - although there's no route for now, an admin can add a feed manually via MySQL, for example.
+  * Performance should not be an issue as DNS call is cached and fast.
+
+
+### Verification Checklist
+- [x] SSRF prevention verification: `UrlSafetyValidatorTest` validates rejection of loopback, private IPs, AWS metadata IPs, and IPv6 bypasses.
+- [x] Service-level enforcement: `FeedServiceTransactionTest` and `FeedCrawlerServiceTest` assert rejection and failure recording on unsafe URLs.
+- [x] Full test suite regression check: All 118 tests pass (`./mvnw test`).
