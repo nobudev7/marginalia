@@ -1,0 +1,4 @@
+app:
+  auth:
+    dev-mode: true
+    whitelist-emails: ${AUTH_WHITELIST_EMAILS:test@example.com}

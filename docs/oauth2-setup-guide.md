@@ -202,7 +202,7 @@ If standard username/password authentication is ever desired in the future, it c
 ### Q: What happens if someone not on the whitelist tries to sign in?
 **A:**
 1. The user will be redirected to Google or GitHub and authenticate with their credentials.
-2. When the provider redirects back to Marginalia, [`CustomOAuth2UserService`](file:///Users/nobu/ghq/github.com/nobudev7/marginalia/backend/src/main/java/com/nobudev/marginalia/service/CustomOAuth2UserService.java) / [`CustomOidcUserService`](file:///Users/nobu/ghq/github.com/nobudev7/marginalia/backend/src/main/java/com/nobudev/marginalia/service/CustomOidcUserService.java) checks the email against [`AuthWhitelistService`](file:///Users/nobu/ghq/github.com/nobudev7/marginalia/backend/src/main/java/com/nobudev/marginalia/service/AuthWhitelistService.java).
+2. When the provider redirects back to Marginalia, `CustomOAuth2UserService` / `CustomOidcUserService` checks the email against `AuthWhitelistService`.
 3. Because the email is not listed in `AUTH_WHITELIST_EMAILS`, an `OAuth2AuthenticationException` (`access_denied`) is thrown.
 4. Marginalia redirects the browser to `/?error=unauthorized`.
 5. **No database record is created, and no session is established.**
@@ -214,7 +214,7 @@ If standard username/password authentication is ever desired in the future, it c
 
 Many GitHub users hide their primary email from their public profile. Standard OAuth2 queries return `null` for the `email` attribute in this case.
 
-Marginalia's [`CustomOAuth2UserService`](file:///Users/nobu/ghq/github.com/nobudev7/marginalia/backend/src/main/java/com/nobudev/marginalia/service/CustomOAuth2UserService.java#L87-L107) includes a dedicated fallback:
+Marginalia's `CustomOAuth2UserService` includes a dedicated fallback:
 - If the public email is null, it immediately calls the GitHub REST API (`GET https://api.github.com/user/emails`) using the user's OAuth access token.
 - It finds the primary, verified email address associated with the GitHub account and validates that address against your whitelist.
 - As long as your GitHub account's primary email matches your whitelist, login succeeds seamlessly.
@@ -254,9 +254,9 @@ Marginalia includes a local helper endpoint at `/api/auth/dev-login`.
 ### How It Works
 * **Endpoint**: `GET` or `POST` `/api/auth/dev-login?email=<email>` (defaults to `test@example.com`)
 * **Behavior**:
-  1. Finds or creates the [`User`](file:///Users/nobu/ghq/github.com/nobudev7/marginalia/backend/src/main/java/com/nobudev/marginalia/entity/User.java) in the database.
+  1. Finds or creates the `User` in the database.
   2. Injects an authenticated `ROLE_USER` principal into Spring Security's context.
-  3. Creates an active session in the MySQL [`SPRING_SESSION`](file:///Users/nobu/ghq/github.com/nobudev7/marginalia/backend/src/main/resources/db/migration/V2__spring_session.sql) table.
+  3. Creates an active session in the MySQL `SPRING_SESSION` table.
   4. Returns the `Set-Cookie: MARGINALIA_SESSION=...` header in the HTTP response.
 
 ### What It Validates vs. What Requires Real OAuth2
@@ -265,7 +265,7 @@ Marginalia includes a local helper endpoint at `/api/auth/dev-login`.
 |---|:---:|:---:|
 | **Spring Security session filter** (accepts valid cookie, rejects unauthenticated requests with 401) | **Yes** | **Yes** |
 | **Spring Session JDBC persistence** (saving sessions in MySQL for 90 days) | **Yes** | **Yes** |
-| **User context resolution** ([`UserService.getCurrentUser()`](file:///Users/nobu/ghq/github.com/nobudev7/marginalia/backend/src/main/java/com/nobudev/marginalia/service/UserService.java) isolates data per user) | **Yes** | **Yes** |
+| **User context resolution** (`UserService.getCurrentUser()` isolates data per user) | **Yes** | **Yes** |
 | **Feed CRUD, live crawling, OPML import/export, and unread counts** | **Yes** | **Yes** |
 | **External Google/GitHub handshake** (redirects, user consent screen, 2FA) | No | **Yes** |
 | **Live email verification** (checking that the user actually owns that email address) | No | **Yes** |
@@ -290,11 +290,14 @@ curl -b cookies.txt "http://localhost:8080/api/articles?size=5"
 ```
 
 ### Production Safeguard
-This endpoint is guarded by the `app.auth.dev-mode` property in [`application.yml`](file:///Users/nobu/ghq/github.com/nobudev7/marginalia/backend/src/main/resources/application.yml):
+This endpoint is guarded by the `app.auth.dev-mode` property in `backend/src/main/resources/application.yml`:
 ```yaml
 app:
   auth:
-    dev-mode: ${DEV_MODE:true}
+    dev-mode: ${DEV_MODE:false}
 ```
-In production (or whenever `DEV_MODE=false`), the endpoint is completely disabled and returns **`404 Not Found`**. Production environments can only authenticate via Google or GitHub OAuth2.
+By default, the endpoint is **completely disabled and returns `404 Not Found`**. For local development, dev-mode can be enabled either by setting the environment variable `DEV_MODE=true` or by activating the `dev` profile (`application-dev.yml`). In production environments without explicit configuration, the application fails closed.
+
+For detailed instructions on activating the `dev` profile via CLI, environment variables, or IDE settings, see the [Local Development Guide](local-development-guide.md).
+
 

@@ -10,7 +10,7 @@ To ensure system reliability, security, and administrative continuity, Marginali
 
 ### 1. Dual-Layer Anti-Lockout Defense (Bootstrap Administrator)
 * The environment variable `AUTH_WHITELIST_EMAILS` serves as a permanent **bootstrap administrator list**.
-* **Startup Seeding**: On application startup, [`AuthWhitelistService`](file:///Users/nobu/ghq/github.com/nobudev7/marginalia/backend/src/main/java/com/nobudev/marginalia/service/AuthWhitelistService.java) automatically checks if the bootstrap emails exist in the database table (`whitelist_emails`). If not, it inserts them.
+* **Startup Seeding**: On application startup, `AuthWhitelistService` automatically checks if the bootstrap emails exist in the database table (`whitelist_emails`). If not, it inserts them.
 * **Fallback Gate**: Even if the database table is accidentally truncated, emptied, or corrupted, any email defined in `AUTH_WHITELIST_EMAILS` is unconditionally authorized to log in. You can **never** be locked out of your instance.
 
 ### 2. Anti-Self-Deletion Guard
@@ -24,7 +24,7 @@ To ensure system reliability, security, and administrative continuity, Marginali
   `"Cannot remove bootstrap administrator email via API. Remove it from AUTH_WHITELIST_EMAILS in environment configuration instead."`
 
 ### 4. Role-Based Access Restriction
-* The whitelist management endpoints (`/api/admin/whitelist/**`) are protected by [`AdminWhitelistController`](file:///Users/nobu/ghq/github.com/nobudev7/marginalia/backend/src/main/java/com/nobudev/marginalia/controller/AdminWhitelistController.java).
+* The whitelist management endpoints (`/api/admin/whitelist/**`) are protected by `AdminWhitelistController`.
 * Only authenticated users whose email is listed among the bootstrap administrators are permitted to view, add, or delete whitelist records. All other users receive HTTP `403 Forbidden`.
 
 ### 5. Email Normalization

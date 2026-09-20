@@ -341,3 +341,21 @@ curl -s http://localhost:5173/api/auth/status
 - [x] Standalone PWA ergonomics: safe-area insets applied to mobile bottom bar, header, and reader drawer footer
 - [x] Mobile touch navigation: `MobileBottomNav` renders with 56px touch tap targets, live unread badges, and responsive view switching
 - [x] PWA installation prompt: `usePwaInstall` detects install capability and surfaces an "Install App" button in the application header
+
+---
+
+## 2026-09-19 — Security Remediation (Item 1): Safe Defaults for Auth & Dev-Mode
+
+### Scope & Goals
+* Enforce "Secure by Default / Fail-Closed" posture in `backend/src/main/resources/application.yml`:
+  * Change `app.auth.dev-mode` default from `true` to `false` (`${DEV_MODE:false}`).
+  * Change `app.auth.whitelist-emails` default from `test@example.com` to empty string (`${AUTH_WHITELIST_EMAILS:}`).
+* Create `backend/src/main/resources/application-dev.yml` to allow local developer environments to explicitly enable dev-mode and test whitelist via the `dev` Spring profile.
+* Add integration test `backend/src/test/java/com/nobudev/marginalia/controller/DevModeDisabledSecurityTest.java` asserting `/api/auth/dev-login` returns `404 Not Found` when dev-mode is disabled.
+* Update `docs/oauth2-setup-guide.md` production safeguard documentation.
+
+### Verification Checklist
+- [x] Safe default verification: `DevModeDisabledSecurityTest` verifies both `GET` and `POST` to `/api/auth/dev-login` return 404 when `dev-mode` is `false`.
+- [x] All 63 backend tests pass (`./mvnw test`).
+- [x] Whitelist default is empty: startup without `AUTH_WHITELIST_EMAILS` seeds zero bootstrap administrator records into database.
+

@@ -38,7 +38,7 @@ The authentication layer is already prepared for open registration.
      auth:
        allow-public-registration: ${ALLOW_PUBLIC_REGISTRATION:false}
    ```
-2. In [`CustomOAuth2UserService`](file:///Users/nobu/ghq/github.com/nobudev7/marginalia/backend/src/main/java/com/nobudev/marginalia/service/CustomOAuth2UserService.java) and [`CustomOidcUserService`](file:///Users/nobu/ghq/github.com/nobudev7/marginalia/backend/src/main/java/com/nobudev/marginalia/service/CustomOidcUserService.java):
+2. In `CustomOAuth2UserService` and `CustomOidcUserService`:
    ```java
    if (!allowPublicRegistration && !whitelistService.isWhitelisted(email)) {
        throw new OAuth2AuthenticationException(
