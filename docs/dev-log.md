@@ -527,3 +527,21 @@ curl -s http://localhost:5173/api/auth/status
 - [x] Security headers verification: `SecurityHeadersAndExceptionTest` confirms `X-Frame-Options`, `X-Content-Type-Options`, and `Referrer-Policy` headers are active.
 - [x] Exception sanitization verification: Unhandled exceptions return generic 500 error map without leaking internal stack traces.
 - [x] Full test suite regression check: All 122 tests pass (`./mvnw test`).
+
+---
+
+## 2026-09-20 — Security Remediation (Item 10): Dependency Scope Hardening & Profile-Based Datasource SSL Separation
+
+### Scope & Goals
+* Exclude development and testing dependencies from production runtime distribution:
+  * In `backend/pom.xml`: change `com.h2database:h2` dependency scope from `runtime` to `test`, ensuring the in-memory H2 database engine is never bundled inside the production application JAR, mitigating classpath gadget and RCE risks.
+* Implement profile-based separation for MySQL datasource SSL enforcement:
+  * In `backend/src/main/resources/application.yml`: adopt a fail-closed, secure-by-default baseline where `useSSL` defaults to `true` (`${DB_USE_SSL:true}`) and `allowPublicKeyRetrieval` defaults to `false` (`${DB_ALLOW_PUBLIC_KEY:false}`). This ensures cloud and production deployments mandate TLS encryption and server identity verification by default.
+  * In `backend/src/main/resources/application-dev.yml`: explicitly configure `useSSL=false&allowPublicKeyRetrieval=true` under the `dev` profile to ensure frictionless local development with Docker containers without certificate setup.
+* Validate that all test suites continue executing cleanly in test scope.
+
+### Verification Checklist
+- [x] Classpath scoping verification: H2 engine is restricted strictly to test phase compilation and execution.
+- [x] Fail-closed SSL configuration: Baseline datasource defaults to encrypted TLS (`useSSL=true`) and disallows public key retrieval (`allowPublicKeyRetrieval=false`).
+- [x] Development ergonomics: `application-dev.yml` overrides SSL flags for local unencrypted Docker MySQL connections.
+- [x] Full test suite regression check: All 122 tests pass (`./mvnw test`).

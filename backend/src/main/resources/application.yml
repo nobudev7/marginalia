@@ -27,7 +27,7 @@ spring:
               - user:email
 
   datasource:
-    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:marginalia}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=UTF-8
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:marginalia}?useSSL=${DB_USE_SSL:true}&allowPublicKeyRetrieval=${DB_ALLOW_PUBLIC_KEY:false}&serverTimezone=UTC&characterEncoding=UTF-8
     username: ${DB_USER:marginalia_user}
     password: ${DB_PASSWORD:marginalia_pass}
     driver-class-name: com.mysql.cj.jdbc.Driver
