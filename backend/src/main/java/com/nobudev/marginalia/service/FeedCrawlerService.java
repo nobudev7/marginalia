@@ -19,6 +19,7 @@ import org.springframework.web.client.RestClient;
 import com.nobudev.marginalia.util.UrlSafetyValidator;
 
 import java.io.ByteArrayInputStream;
+import java.net.URI;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -112,6 +113,7 @@ public class FeedCrawlerService {
             // Parse with ROME
             SyndFeedInput input = new SyndFeedInput();
             input.setAllowDoctypes(false);
+            input.setAllowDoctypes(false);
             SyndFeed syndFeed;
             try (XmlReader xmlReader = new XmlReader(new ByteArrayInputStream(fetchResult.body()))) {
                 syndFeed = input.build(xmlReader);
@@ -154,32 +156,68 @@ public class FeedCrawlerService {
     // Internal helpers
     // -----------------------------------------------------------------------
 
+    private static final int MAX_REDIRECTS = 5;
+
+    private static boolean isRedirect(int statusCode) {
+        return statusCode == 301 || statusCode == 302 || statusCode == 303 || statusCode == 307 || statusCode == 308;
+    }
+
     private record FetchResult(int statusCode, HttpHeaders headers, byte[] body) {}
 
     /**
      * Fetches the feed URL, sending conditional HTTP headers if available.
+     * Manually follows HTTP redirects up to MAX_REDIRECTS, re-validating each
+     * destination URL with UrlSafetyValidator to prevent SSRF bypasses via redirects.
      * Uses RestClient.exchange() for full control over the response handling,
      * including 304 Not Modified which has no response body.
      */
     private FetchResult fetchFeed(Feed feed) {
-        UrlSafetyValidator.validate(feed.getFeedUrl());
-        RestClient.RequestHeadersSpec<?> spec = restClient.get().uri(feed.getFeedUrl());
+        String currentUrl = feed.getFeedUrl();
 
-        if (feed.getEtag() != null && !feed.getEtag().isEmpty()) {
-            spec = spec.header("If-None-Match", feed.getEtag());
-        }
-        if (feed.getLastModifiedHeader() != null && !feed.getLastModifiedHeader().isEmpty()) {
-            spec = spec.header("If-Modified-Since", feed.getLastModifiedHeader());
+        for (int hop = 0; hop <= MAX_REDIRECTS; hop++) {
+            UrlSafetyValidator.validate(currentUrl);
+
+            RestClient.RequestHeadersSpec<?> spec = restClient.get().uri(currentUrl);
+
+            if (hop == 0) {
+                if (feed.getEtag() != null && !feed.getEtag().isEmpty()) {
+                    spec = spec.header("If-None-Match", feed.getEtag());
+                }
+                if (feed.getLastModifiedHeader() != null && !feed.getLastModifiedHeader().isEmpty()) {
+                    spec = spec.header("If-Modified-Since", feed.getLastModifiedHeader());
+                }
+            }
+
+            FetchResult fetchResult = spec.exchange((request, response) -> {
+                HttpStatusCode status = response.getStatusCode();
+                HttpHeaders headers = response.getHeaders();
+                byte[] body = (status.value() == 304)
+                        ? new byte[0]
+                        : response.getBody().readAllBytes();
+                return new FetchResult(status.value(), headers, body);
+            });
+
+            if (isRedirect(fetchResult.statusCode())) {
+                if (hop == MAX_REDIRECTS) {
+                    throw new IllegalArgumentException("Too many redirects (max " + MAX_REDIRECTS + ") for feed: " + feed.getFeedUrl());
+                }
+                String location = fetchResult.headers().getFirst("Location");
+                if (location == null || location.isBlank()) {
+                    throw new IllegalArgumentException("Redirect response missing Location header from URL: " + currentUrl);
+                }
+                try {
+                    currentUrl = URI.create(currentUrl).resolve(location.trim()).toString();
+                } catch (Exception e) {
+                    throw new IllegalArgumentException("Invalid redirect Location header: " + location, e);
+                }
+                log.debug("Following redirect for feed '{}': {} -> {}", feed.getTitle(), feed.getFeedUrl(), currentUrl);
+                continue;
+            }
+
+            return fetchResult;
         }
 
-        return spec.exchange((request, response) -> {
-            HttpStatusCode status = response.getStatusCode();
-            HttpHeaders headers = response.getHeaders();
-            byte[] body = (status.value() == 304)
-                    ? new byte[0]
-                    : response.getBody().readAllBytes();
-            return new FetchResult(status.value(), headers, body);
-        });
+        throw new IllegalArgumentException("Too many redirects for feed: " + feed.getFeedUrl());
     }
 
     private void updateFeedMetadata(Feed feed, SyndFeed syndFeed) {

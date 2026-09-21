@@ -300,4 +300,72 @@ class FeedCrawlerServiceTest {
         assertThat(articleRepository.findByFeedIdAndGuid(feed.getId(), "guid-xxe-1")).isEmpty();
         mockServer.verify();
     }
+
+    @Test
+    void testCrawlerFollowsValidHttpRedirect() {
+        Feed feed = new Feed(testUser, null, "https://example.com/redirect-source.xml", null, "Redirect Feed", null);
+        feed = feedRepository.save(feed);
+
+        mockServer.expect(requestTo("https://example.com/redirect-source.xml"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withStatus(HttpStatus.FOUND)
+                        .header(HttpHeaders.LOCATION, "https://example.com/redirect-target.xml"));
+
+        mockServer.expect(requestTo("https://example.com/redirect-target.xml"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess(new ClassPathResource("fixtures/sample-rss.xml"), MediaType.APPLICATION_XML));
+
+        CrawlResult result = crawlerService.crawlFeed(feed);
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.newArticles()).isEqualTo(2);
+        mockServer.verify();
+    }
+
+    @Test
+    void testCrawlerBlocksSsrfViaRedirectToPrivateIp() {
+        Feed feed = new Feed(testUser, null, "https://example.com/safe-looking-feed.xml", null, "SSRF Redirect Feed", null);
+        feed = feedRepository.save(feed);
+
+        mockServer.expect(requestTo("https://example.com/safe-looking-feed.xml"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withStatus(HttpStatus.FOUND)
+                        .header(HttpHeaders.LOCATION, "http://169.254.169.254/latest/meta-data"));
+
+        CrawlResult result = crawlerService.crawlFeed(feed);
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.error()).contains("blocked");
+        assertThat(result.error()).contains("169.254.169.254");
+
+        Feed updated = feedRepository.findById(feed.getId()).orElseThrow();
+        assertThat(updated.getFetchErrorCount()).isEqualTo(1);
+        assertThat(updated.getLastErrorMessage()).contains("169.254.169.254");
+
+        mockServer.verify();
+    }
+
+    @Test
+    void testCrawlerBlocksRedirectLoop() {
+        Feed feed = new Feed(testUser, null, "https://example.com/redirect-0.xml", null, "Loop Feed", null);
+        feed = feedRepository.save(feed);
+
+        for (int i = 0; i <= 5; i++) {
+            mockServer.expect(requestTo("https://example.com/redirect-" + i + ".xml"))
+                    .andExpect(method(HttpMethod.GET))
+                    .andRespond(withStatus(HttpStatus.FOUND)
+                            .header(HttpHeaders.LOCATION, "https://example.com/redirect-" + (i + 1) + ".xml"));
+        }
+
+        CrawlResult result = crawlerService.crawlFeed(feed);
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.error()).contains("Too many redirects");
+
+        Feed updated = feedRepository.findById(feed.getId()).orElseThrow();
+        assertThat(updated.getFetchErrorCount()).isEqualTo(1);
+        assertThat(updated.getLastErrorMessage()).contains("Too many redirects");
+
+        mockServer.verify();
+    }
 }
