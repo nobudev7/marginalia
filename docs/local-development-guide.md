@@ -11,14 +11,25 @@ Marginalia follows a **Secure by Default / Fail-Closed** architecture:
 * **Production Baseline (`backend/src/main/resources/application.yml`)**:
   * `dev-mode: false`: The local bypass endpoint (`/api/auth/dev-login`) is completely disabled and returns HTTP `404 Not Found`.
   * `whitelist-emails: ""`: No default test email is granted administrator or access privileges.
-  * If the application is launched in production without environment variables, it will **rather not allow logins than expose security vulnerabilities**.
+  * `secure-cookie: true`: Session cookies mandate HTTPS (`Secure` flag).
+  * `useSSL: true` / `allowPublicKeyRetrieval: false`: Database connections mandate TLS encryption and strict server identity verification.
+  * If the application is launched in production without environment variables, it will **rather fail to connect or deny access than expose security vulnerabilities**.
 * **Development Profile (`backend/src/main/resources/application-dev.yml`)**:
-  * `dev-mode: true`: Enables the `/api/auth/dev-login` endpoint.
+  * `dev-mode: true`: Enables the `/api/auth/dev-login` endpoint (restricted to `POST` to mitigate Cross-Site Login Attacks).
   * `whitelist-emails: test@example.com`: Authorizes a default local testing account.
+  * `secure-cookie: false`: Allows plain HTTP cookies on `http://localhost:8080`.
+  * `useSSL: false` / `allowPublicKeyRetrieval: true`: Connects to unencrypted local Docker MySQL.
 
 ---
 
 ## 2. How to Activate the `dev` Profile
+
+> [!IMPORTANT]
+> **Prerequisite: Start Local Database**  
+> Before running the backend, start the local MySQL container from the project root:
+> ```bash
+> docker compose -f compose.dev.yaml up -d
+> ```
 
 You can activate the `dev` profile using any of the following methods:
 

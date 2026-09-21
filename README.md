@@ -40,6 +40,35 @@ Marginalia is designed to provide a clean, personal reading experience:
 
 ---
 
+## Quickstart (Local Development)
+
+Marginalia enforces a **fail-closed security baseline** by default (requiring TLS for database traffic, secure cookies for HTTPS, and disabling dev logins). For local development on macOS/Linux, **you must activate the `dev` profile** to enable local Docker MySQL connectivity and test authentication without Google/GitHub OAuth2 credentials.
+
+### 1. Start the Local Database
+```bash
+docker compose -f compose.dev.yaml up -d
+```
+
+### 2. Start the Backend with the `dev` Profile
+```bash
+cd backend
+./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
+```
+*(Or set `SPRING_PROFILES_ACTIVE=dev` in your shell / IDE)*.
+
+### 3. Start the Frontend
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open `http://localhost:5173` and click **"Sign in as Dev User"** to authenticate.
+
+For detailed IDE configurations and security posture rationale, see the [Local Development Guide](docs/local-development-guide.md).
+
+---
+
 ## Documentation
 
 * [OAuth2 Setup Guide](docs/oauth2-setup-guide.md) — Step-by-step Google and GitHub OAuth2 configuration.
