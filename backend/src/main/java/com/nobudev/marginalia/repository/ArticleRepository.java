@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.Optional;
 
 @Repository
@@ -177,4 +178,12 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
     java.util.List<Long> findUnreadArticleIdsByCategoryIdAndUserId(@Param("categoryId") Long categoryId, @Param("userId") Long userId);
 
     boolean existsByFeedIdAndGuid(Long feedId, String guid);
+
+    /**
+     * Filters the given article IDs to only those belonging to feeds owned by the specified user.
+     * Used to prevent IDOR when accepting client-supplied article ID lists.
+     */
+    @Query("SELECT a.id FROM Article a WHERE a.id IN :articleIds AND a.feed.user.id = :userId")
+    java.util.List<Long> findOwnedArticleIds(@Param("articleIds") Collection<Long> articleIds,
+                                              @Param("userId") Long userId);
 }

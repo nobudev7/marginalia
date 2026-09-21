@@ -133,17 +133,23 @@ public class ArticleService {
             return;
         }
 
-        // 1 query: batch-fetch all existing states for the given article IDs
-        List<ArticleUserState> existingStates = stateRepository.findByUserIdAndArticleIdIn(userId, articleIds);
+        // Filter to only articles belonging to feeds owned by this user (prevents IDOR)
+        List<Long> ownedIds = articleRepository.findOwnedArticleIds(articleIds, userId);
+        if (ownedIds.isEmpty()) {
+            return;
+        }
+
+        // 1 query: batch-fetch all existing states for the owned article IDs
+        List<ArticleUserState> existingStates = stateRepository.findByUserIdAndArticleIdIn(userId, ownedIds);
 
         Map<Long, ArticleUserState> stateMap = existingStates.stream()
                 .collect(Collectors.toMap(s -> s.getArticle().getId(), s -> s));
 
         // Update existing states and create new ones in memory
-        List<ArticleUserState> toSave = new java.util.ArrayList<>(articleIds.size());
+        List<ArticleUserState> toSave = new java.util.ArrayList<>(ownedIds.size());
         User userRef = userRepository.getReferenceById(userId);
 
-        for (Long articleId : articleIds) {
+        for (Long articleId : ownedIds) {
             ArticleUserState state = stateMap.get(articleId);
             if (state == null) {
                 state = new ArticleUserState(userRef, articleRepository.getReferenceById(articleId));
