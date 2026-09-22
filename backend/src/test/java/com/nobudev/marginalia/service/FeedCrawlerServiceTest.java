@@ -18,6 +18,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.unit.DataSize;
 import org.springframework.web.client.RestClient;
 
 import java.util.List;
@@ -367,5 +368,61 @@ class FeedCrawlerServiceTest {
         assertThat(updated.getLastErrorMessage()).contains("Too many redirects");
 
         mockServer.verify();
+    }
+
+    @Test
+    void testCrawlerRejectsFeedExceedingContentLengthHeader() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer customMockServer = MockRestServiceServer.bindTo(builder).build();
+        FeedCrawlerService sizeLimitedCrawler = new FeedCrawlerService(
+                feedRepository, articleRepository, builder.build(), DataSize.ofBytes(100));
+
+        Feed feed = new Feed(testUser, null, "https://example.com/oversized-header.xml", null, "Oversized Header Feed", null);
+        feed = feedRepository.save(feed);
+
+        customMockServer.expect(requestTo("https://example.com/oversized-header.xml"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess("<rss></rss>", MediaType.APPLICATION_XML)
+                        .header(HttpHeaders.CONTENT_LENGTH, "5000"));
+
+        CrawlResult result = sizeLimitedCrawler.crawlFeed(feed);
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.error()).contains("exceeds maximum allowed size");
+
+        Feed updated = feedRepository.findById(feed.getId()).orElseThrow();
+        assertThat(updated.getFetchErrorCount()).isEqualTo(1);
+        assertThat(updated.getLastErrorMessage()).contains("exceeds maximum allowed size");
+
+        customMockServer.verify();
+    }
+
+    @Test
+    void testCrawlerRejectsFeedExceedingMaxBodySizeDuringStreaming() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer customMockServer = MockRestServiceServer.bindTo(builder).build();
+        FeedCrawlerService sizeLimitedCrawler = new FeedCrawlerService(
+                feedRepository, articleRepository, builder.build(), DataSize.ofBytes(50));
+
+        Feed feed = new Feed(testUser, null, "https://example.com/oversized-body.xml", null, "Oversized Body Feed", null);
+        feed = feedRepository.save(feed);
+
+        // Generates ~200 bytes of XML without Content-Length header
+        String largeBody = "<rss version=\"2.0\"><channel><title>Very Long Feed Content That Exceeds The Limit</title></channel></rss>";
+
+        customMockServer.expect(requestTo("https://example.com/oversized-body.xml"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess(largeBody, MediaType.APPLICATION_XML));
+
+        CrawlResult result = sizeLimitedCrawler.crawlFeed(feed);
+
+        assertThat(result.isSuccess()).isFalse();
+        assertThat(result.error()).contains("exceeds maximum allowed size");
+
+        Feed updated = feedRepository.findById(feed.getId()).orElseThrow();
+        assertThat(updated.getFetchErrorCount()).isEqualTo(1);
+        assertThat(updated.getLastErrorMessage()).contains("exceeds maximum allowed size");
+
+        customMockServer.verify();
     }
 }

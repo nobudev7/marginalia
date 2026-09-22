@@ -56,4 +56,16 @@ class SecurityHeadersAndExceptionTest {
         org.assertj.core.api.Assertions.assertThat(response.getBody().values().toString())
                 .doesNotContain("Sensitive database stack trace");
     }
+
+    @Test
+    void testGlobalExceptionHandlerHandlesFeedSizeExceededException() {
+        GlobalExceptionHandler handler = new GlobalExceptionHandler();
+        var response = handler.handleFeedSizeExceeded(
+                new com.nobudev.marginalia.exception.FeedSizeExceededException("https://example.com/feed.xml", 10485760L, 20000000L));
+
+        org.assertj.core.api.Assertions.assertThat(response.getStatusCode().value()).isEqualTo(413);
+        org.assertj.core.api.Assertions.assertThat(response.getBody()).isNotNull();
+        org.assertj.core.api.Assertions.assertThat(response.getBody().get("error"))
+                .contains("exceeds maximum allowed size of 10485760 bytes");
+    }
 }

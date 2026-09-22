@@ -48,6 +48,7 @@ spring:
 app:
   crawler:
     interval: 15m
+    max-feed-size: ${CRAWLER_MAX_FEED_SIZE:10MB}
   auth:
     whitelist-emails: ${AUTH_WHITELIST_EMAILS:}
     dev-mode: ${DEV_MODE:false}

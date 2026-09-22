@@ -33,6 +33,7 @@ spring:
 app:
   crawler:
     interval: 1h
+    max-feed-size: 10MB
   auth:
     whitelist-emails: "test@example.com"
     dev-mode: true

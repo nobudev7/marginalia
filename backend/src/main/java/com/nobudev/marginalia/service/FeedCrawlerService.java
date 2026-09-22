@@ -3,6 +3,7 @@ package com.nobudev.marginalia.service;
 import com.nobudev.marginalia.dto.CrawlResult;
 import com.nobudev.marginalia.entity.Article;
 import com.nobudev.marginalia.entity.Feed;
+import com.nobudev.marginalia.exception.FeedSizeExceededException;
 import com.nobudev.marginalia.repository.ArticleRepository;
 import com.nobudev.marginalia.repository.FeedRepository;
 import com.rometools.rome.feed.synd.SyndEntry;
@@ -11,14 +12,19 @@ import com.rometools.rome.io.SyndFeedInput;
 import com.rometools.rome.io.XmlReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.util.unit.DataSize;
 import org.springframework.web.client.RestClient;
 import com.nobudev.marginalia.util.UrlSafetyValidator;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -40,13 +46,23 @@ public class FeedCrawlerService {
     private final FeedRepository feedRepository;
     private final ArticleRepository articleRepository;
     private final RestClient restClient;
+    private final DataSize maxFeedSize;
 
     public FeedCrawlerService(FeedRepository feedRepository,
                               ArticleRepository articleRepository,
                               RestClient restClient) {
+        this(feedRepository, articleRepository, restClient, DataSize.ofMegabytes(10));
+    }
+
+    @Autowired
+    public FeedCrawlerService(FeedRepository feedRepository,
+                              ArticleRepository articleRepository,
+                              RestClient restClient,
+                              @Value("${app.crawler.max-feed-size:10MB}") DataSize maxFeedSize) {
         this.feedRepository = feedRepository;
         this.articleRepository = articleRepository;
         this.restClient = restClient;
+        this.maxFeedSize = maxFeedSize != null ? maxFeedSize : DataSize.ofMegabytes(10);
     }
 
     /**
@@ -113,7 +129,6 @@ public class FeedCrawlerService {
             // Parse with ROME
             SyndFeedInput input = new SyndFeedInput();
             input.setAllowDoctypes(false);
-            input.setAllowDoctypes(false);
             SyndFeed syndFeed;
             try (XmlReader xmlReader = new XmlReader(new ByteArrayInputStream(fetchResult.body()))) {
                 syndFeed = input.build(xmlReader);
@@ -142,6 +157,13 @@ public class FeedCrawlerService {
             log.info("Crawled '{}': {} new / {} total entries", feed.getTitle(), newCount, entries.size());
             return new CrawlResult(newCount, entries.size(), false, null);
 
+        } catch (FeedSizeExceededException e) {
+            log.warn("Feed '{}' ({}) exceeded maximum allowed size: {}", feed.getTitle(), feed.getFeedUrl(), e.getMessage());
+            feed.setFetchErrorCount(feed.getFetchErrorCount() + 1);
+            feed.setLastErrorMessage(truncate(e.getMessage(), 1000));
+            feed.setLastFetchedAt(LocalDateTime.now());
+            feedRepository.save(feed);
+            return new CrawlResult(0, 0, false, e.getMessage());
         } catch (Exception e) {
             log.error("Error crawling feed '{}' ({}): {}", feed.getTitle(), feed.getFeedUrl(), e.getMessage());
             feed.setFetchErrorCount(feed.getFetchErrorCount() + 1);
@@ -188,12 +210,21 @@ public class FeedCrawlerService {
                 }
             }
 
+            final String requestUrl = currentUrl;
             FetchResult fetchResult = spec.exchange((request, response) -> {
                 HttpStatusCode status = response.getStatusCode();
                 HttpHeaders headers = response.getHeaders();
-                byte[] body = (status.value() == 304)
-                        ? new byte[0]
-                        : response.getBody().readAllBytes();
+                byte[] body;
+                if (status.value() == 304 || isRedirect(status.value())) {
+                    body = new byte[0];
+                } else {
+                    long contentLength = headers.getContentLength();
+                    long maxBytes = maxFeedSize.toBytes();
+                    if (contentLength > 0 && contentLength > maxBytes) {
+                        throw new FeedSizeExceededException(requestUrl, maxBytes, contentLength);
+                    }
+                    body = readBoundedBody(response.getBody(), maxBytes, requestUrl);
+                }
                 return new FetchResult(status.value(), headers, body);
             });
 
@@ -218,6 +249,15 @@ public class FeedCrawlerService {
         }
 
         throw new IllegalArgumentException("Too many redirects for feed: " + feed.getFeedUrl());
+    }
+
+    private byte[] readBoundedBody(InputStream in, long maxBytes, String url) throws IOException {
+        int limit = (int) Math.min(maxBytes, Integer.MAX_VALUE - 1);
+        byte[] buffer = in.readNBytes(limit + 1);
+        if (buffer.length > limit) {
+            throw new FeedSizeExceededException(url, maxBytes, null);
+        }
+        return buffer;
     }
 
     private void updateFeedMetadata(Feed feed, SyndFeed syndFeed) {
