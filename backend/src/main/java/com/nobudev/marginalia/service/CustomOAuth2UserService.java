@@ -111,6 +111,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             if (emails != null) {
                 return emails.stream()
                         .filter(e -> Boolean.TRUE.equals(e.get("primary")))
+                        .filter(e -> Boolean.TRUE.equals(e.get("verified")))
                         .map(e -> (String) e.get("email"))
                         .findFirst()
                         .orElse(null);

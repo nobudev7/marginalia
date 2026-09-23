@@ -44,6 +44,16 @@ public class CustomOidcUserService extends OidcUserService {
             );
         }
 
+        // Reject unverified email claims to prevent identity spoofing
+        Boolean emailVerified = oidcUser.getAttribute("email_verified");
+        if (Boolean.FALSE.equals(emailVerified)) {
+            log.warn("OIDC login rejected: Email '{}' is not verified by provider '{}'", email, registrationId);
+            throw new OAuth2AuthenticationException(
+                    new OAuth2Error("unverified_email",
+                            "Email address not verified by " + registrationId, null)
+            );
+        }
+
         // Enforce whitelist check
         if (!whitelistService.isWhitelisted(email)) {
             log.warn("OIDC login rejected: Email '{}' is not on the whitelist", email);
