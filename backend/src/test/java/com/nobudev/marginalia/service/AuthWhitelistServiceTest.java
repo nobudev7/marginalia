@@ -112,4 +112,30 @@ class AuthWhitelistServiceTest {
 
         verify(whitelistRepository, times(1)).delete(entry);
     }
+
+    @Test
+    void testIsAdminWithConfiguredBootstrapEmails() {
+        assertThat(service.isAdmin("admin@marginalia.local")).isTrue();
+        assertThat(service.isAdmin("ADMIN@marginalia.local")).isTrue();
+        assertThat(service.isAdmin("owner@example.com")).isTrue();
+        assertThat(service.isAdmin("OWNER@EXAMPLE.COM")).isTrue();
+
+        assertThat(service.isAdmin("regular@example.com")).isFalse();
+        assertThat(service.isAdmin(null)).isFalse();
+        assertThat(service.isAdmin("")).isFalse();
+        assertThat(service.isAdmin("   ")).isFalse();
+    }
+
+    @Test
+    void testIsAdminFailsClosedWhenNoBootstrapEmailsConfigured() {
+        AuthWhitelistService unconfiguredService = new AuthWhitelistService(whitelistRepository, "");
+
+        // Even if the user is in the database whitelist, they must NOT gain admin privileges
+        when(whitelistRepository.existsByEmailIgnoreCase("regular@example.com")).thenReturn(true);
+        assertThat(unconfiguredService.isWhitelisted("regular@example.com")).isTrue();
+        assertThat(unconfiguredService.isAdmin("regular@example.com")).isFalse();
+
+        assertThat(unconfiguredService.isAdmin("anyone@example.com")).isFalse();
+        assertThat(unconfiguredService.isAdmin(null)).isFalse();
+    }
 }

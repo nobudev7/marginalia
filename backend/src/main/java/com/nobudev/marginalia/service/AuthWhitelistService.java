@@ -79,18 +79,16 @@ public class AuthWhitelistService {
 
     /**
      * Checks whether an email has administrator privileges to manage the whitelist.
+     * Only designated bootstrap administrators configured via 'app.auth.whitelist-emails'
+     * hold administrative privileges. If no bootstrap administrators are configured,
+     * administrative endpoints fail closed (no user is granted admin access).
      */
     public boolean isAdmin(String email) {
         if (email == null || email.isBlank()) {
             return false;
         }
         String normalized = email.trim().toLowerCase();
-        // If bootstrap admins are configured, only they have admin access.
-        // If not configured, any whitelisted user has administrative access.
-        if (!bootstrapAdminEmails.isEmpty()) {
-            return bootstrapAdminEmails.contains(normalized);
-        }
-        return isWhitelisted(normalized);
+        return bootstrapAdminEmails.contains(normalized);
     }
 
     /**
