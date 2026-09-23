@@ -111,14 +111,24 @@ public final class UrlSafetyValidator {
 
     private static boolean isUnsafeIpv6(byte[] b) {
         // Check for IPv4-mapped IPv6 address: ::ffff:a.b.c.d
-        boolean isIpv4Mapped = true;
+        // and IPv4-compatible IPv6 address: ::a.b.c.d (first 12 bytes all zero)
+        boolean prefixAllZero = true;
         for (int i = 0; i < 10; i++) {
             if (b[i] != 0) {
-                isIpv4Mapped = false;
+                prefixAllZero = false;
                 break;
             }
         }
-        if (isIpv4Mapped && (b[10] & 0xFF) == 0xFF && (b[11] & 0xFF) == 0xFF) {
+        if (prefixAllZero && (b[10] & 0xFF) == 0xFF && (b[11] & 0xFF) == 0xFF) {
+            // IPv4-mapped: ::ffff:a.b.c.d
+            byte[] ipv4Bytes = new byte[4];
+            System.arraycopy(b, 12, ipv4Bytes, 0, 4);
+            return isUnsafeIpv4(ipv4Bytes);
+        }
+        if (prefixAllZero && b[10] == 0 && b[11] == 0) {
+            // IPv4-compatible: ::a.b.c.d (deprecated but still routable on some systems)
+            // Note: ::0.0.0.0 (unspecified) and ::0.0.0.1 (loopback) are also caught
+            // by the dedicated checks below, so unconditional delegation is safe.
             byte[] ipv4Bytes = new byte[4];
             System.arraycopy(b, 12, ipv4Bytes, 0, 4);
             return isUnsafeIpv4(ipv4Bytes);

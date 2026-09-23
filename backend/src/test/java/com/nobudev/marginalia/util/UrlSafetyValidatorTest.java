@@ -107,4 +107,18 @@ class UrlSafetyValidatorTest {
         assertThatThrownBy(() -> UrlSafetyValidator.validate(url))
                 .isInstanceOf(IllegalArgumentException.class);
     }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "http://[::10.0.0.1]/feed",
+            "http://[::127.0.0.1]/feed",
+            "http://[::169.254.169.254]/feed",
+            "http://[::192.168.1.1]/feed",
+            "http://[::172.16.0.1]/feed",
+            "http://[::100.64.0.1]/feed"
+    })
+    void testIpv4CompatibleIpv6Blocked(String url) {
+        assertThatThrownBy(() -> UrlSafetyValidator.validate(url))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
 }
