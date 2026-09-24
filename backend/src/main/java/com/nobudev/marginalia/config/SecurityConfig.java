@@ -55,7 +55,10 @@ public class SecurityConfig {
                     "/manifest.webmanifest",
                     "/favicon.ico",
                     "/assets/**",
-                    "/api/auth/**",
+                    "/api/auth/status",
+                    "/api/auth/providers",
+                    "/api/auth/dev-login",
+                    "/api/auth/logout",
                     "/oauth2/**",
                     "/login/**",
                     "/error"
