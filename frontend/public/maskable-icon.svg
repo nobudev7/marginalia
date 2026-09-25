@@ -2,16 +2,35 @@
   <defs>
     <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#D97706" />
-      <stop offset="100%" stop-color="#92400E" />
+      <stop offset="100%" stop-color="#78350F" />
     </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FEF3C7" />
+      <stop offset="100%" stop-color="#FDE68A" />
+    </linearGradient>
+    <filter id="subtleShadow" x="-15%" y="-15%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#451A03" flood-opacity="0.35" />
+    </filter>
   </defs>
+
   <!-- Full-bleed background for maskable icon cropping -->
   <rect width="512" height="512" fill="url(#bgGrad)" />
-  <g transform="translate(64, 64) scale(0.75)">
-    <rect x="72" y="100" width="14" height="312" rx="7" fill="#FDE68A" opacity="0.85" />
-    <path
-      d="M140 376 V136 h44 l72 170 72 -170 h44 v240 h-36 V198 l-64 150 h-32 l-64 -150 v178 Z"
-      fill="#FAF8F5"
-    />
+
+  <!-- Safe zone scaling for adaptive Android icons -->
+  <g transform="translate(64, 64) scale(0.75)" filter="url(#subtleShadow)">
+    <!-- Warm Paper White Origin Beacon -->
+    <circle cx="144" cy="368" r="38" fill="#FAF8F5" />
+
+    <!-- Arc 1 (inner wave): R=116, 64 deg span -->
+    <path d="M 170.1 254.9 A 116 116 0 0 1 257.0 341.9"
+          fill="none" stroke="url(#goldGrad)" stroke-width="40" stroke-linecap="round" />
+
+    <!-- Arc 2 (middle wave): R=208, 72 deg span -->
+    <path d="M 176.5 162.6 A 208 208 0 0 1 349.4 335.5"
+          fill="none" stroke="url(#goldGrad)" stroke-width="40" stroke-linecap="round" />
+
+    <!-- Arc 3 (outer wave): R=296, 80 deg span -->
+    <path d="M 169.8 73.1 A 296 296 0 0 1 438.9 342.2"
+          fill="none" stroke="url(#goldGrad)" stroke-width="40" stroke-linecap="round" />
   </g>
 </svg>

@@ -27,9 +27,11 @@ export function Header({ onToggleMobileMenu, onOpenSettings }: HeaderProps) {
             </button>
           )}
 
-          <div className="w-8 h-8 rounded-lg bg-amberAccent-700 text-paper-50 flex items-center justify-center font-serif font-bold text-lg shadow-xs">
-            M
-          </div>
+          <img
+            src="/favicon.svg"
+            alt="Marginalia"
+            className="w-8 h-8 rounded-lg shadow-xs object-cover"
+          />
           <div>
             <h1 className="font-serif text-lg font-bold tracking-tight text-ink-900 leading-none">
               Marginalia

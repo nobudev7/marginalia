@@ -23,9 +23,11 @@ export function LoginPage() {
       <div className="w-full max-w-md">
         {/* Brand Emblem & Headline */}
         <div className="text-center mb-8">
-          <div className="inline-flex w-14 h-14 rounded-2xl bg-amberAccent-700 text-paper-50 items-center justify-center font-serif font-bold text-2xl shadow-sm mb-4">
-            M
-          </div>
+          <img
+            src="/favicon.svg"
+            alt="Marginalia"
+            className="inline-flex w-14 h-14 rounded-2xl shadow-sm mb-4 object-cover"
+          />
           <h1 className="font-serif text-3xl font-bold tracking-tight text-ink-900">
             Marginalia
           </h1>
