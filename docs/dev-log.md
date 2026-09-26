@@ -545,3 +545,35 @@ curl -s http://localhost:5173/api/auth/status
 - [x] Fail-closed SSL configuration: Baseline datasource defaults to encrypted TLS (`useSSL=true`) and disallows public key retrieval (`allowPublicKeyRetrieval=false`).
 - [x] Development ergonomics: `application-dev.yml` overrides SSL flags for local unencrypted Docker MySQL connections.
 - [x] Full test suite regression check: All 122 tests pass (`./mvnw test`).
+
+---
+
+## 2026-09-26 — Phase 5: Backend Multi-Stage Containerization (Step 5.1)
+
+### Scope & Goals
+* Implement multi-stage `backend/Dockerfile` targeting Java 25 LTS and Spring Boot 4:
+  * **Stage 1 (`builder`)**: Uses `maven:3-eclipse-temurin-25`. Copies `pom.xml` first to execute `mvn dependency:go-offline -B` for Docker layer caching, followed by source compilation (`mvn clean package -DskipTests -B`).
+  * **Stage 2 (Runtime)**: Minimal `eclipse-temurin:25-jre` slim runtime (~430 MB total image size).
+* Implement container security hardening:
+  * Create dedicated unprivileged system group and user `marginalia:marginalia` (UID/GID `1001`).
+  * Enforce non-root execution (`USER marginalia:marginalia`).
+* Tune JVM memory ergonomics for small VPS instances (AWS Lightsail 1 GB–2 GB plans):
+  * `-XX:MaxRAMPercentage=75.0` to dynamically adjust heap size to container limits.
+  * `-XX:+UseG1GC` for low-latency garbage collection.
+  * `-XX:+ExitOnOutOfMemoryError` to trigger container restart upon memory exhaustion.
+* Ensure graceful process termination:
+  * Use `exec java $JAVA_OPTS -jar /app/app.jar "$@"` so `SIGTERM` signals directly reach the JVM for orderly Spring Boot shutdown.
+* Add native container health monitoring:
+  * Configure Docker `HEALTHCHECK` periodically querying the `/api/auth/status` public endpoint.
+* Create `backend/.dockerignore` to exclude build artifacts, IDE files, and git metadata from build contexts.
+* Document local verification steps and port conflict workarounds in `docs/backend-container-verification.md`.
+
+### Verification Checklist
+- [x] Multi-stage build verification: Built `marginalia-backend:test` with compact image footprint (430 MB).
+- [x] Layer caching optimization: Dependency download cached via `mvn dependency:go-offline -B`.
+- [x] Non-root process execution: Verified process runs under UID `1001` (`marginalia`) via `docker top`.
+- [x] Application context initialization: Spring Boot started in 2.975s with Flyway schema validation.
+- [x] HTTP healthcheck verification: `curl -i http://localhost:8080/api/auth/status` returns HTTP 200 OK with security headers (`X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`).
+- [x] Docker native health check: Container state reported `healthy`.
+- [x] Documentation: Created `docs/backend-container-verification.md`.
+
