@@ -1,0 +1,31 @@
+:80 {
+	root * /usr/share/caddy
+	encode zstd gzip
+
+	# Standard security headers
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+
+	# Cache immutable hashed static assets for 1 year
+	@assets path /assets/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+
+	# Ensure PWA service worker and web manifest are revalidated immediately
+	@pwa path /sw.js /manifest.webmanifest
+	header @pwa Cache-Control "public, max-age=0, must-revalidate"
+
+	# Reverse proxy API and authentication requests to backend
+	@api path /api/* /oauth2/* /login/* /logout
+	handle @api {
+		reverse_proxy {$BACKEND_URL:http://backend:8080}
+	}
+
+	# SPA routing: serve static file if it exists, otherwise fall back to index.html
+	handle {
+		try_files {path} /index.html
+		file_server
+	}
+}

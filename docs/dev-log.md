@@ -577,3 +577,36 @@ curl -s http://localhost:5173/api/auth/status
 - [x] Docker native health check: Container state reported `healthy`.
 - [x] Documentation: Created `docs/backend-container-verification.md`.
 
+---
+
+## 2026-09-26 — Phase 5: Frontend Multi-Stage Containerization (Step 5.2)
+
+### Scope & Goals
+* Implement multi-stage `frontend/Dockerfile` for React PWA production build:
+  * **Stage 1 (`builder`)**: Uses `node:22-alpine`. Copies `package.json` and `package-lock.json` first to leverage Docker layer caching, running `npm ci` followed by production build (`npm run build`). Generates minified JavaScript/CSS, PWA web manifest, and Workbox service worker (`dist/sw.js`).
+  * **Stage 2 (Runtime)**: Minimal, hardened `caddy:2-alpine` static asset server (~61.5 MB total image footprint).
+* Implement container security hardening:
+  * Create unprivileged system user `marginalia` (UID `1001`) with owned `/config/caddy`, `/data/caddy`, and `/usr/share/caddy` directories.
+  * Enforce non-root execution (`USER marginalia`).
+* Configure static web server routing and caching (`frontend/Caddyfile`):
+  * SPA route fallback (`try_files {path} /index.html`) to support client-side routing.
+  * Standard security headers: `X-Content-Type-Options "nosniff"`, `X-Frame-Options "DENY"`, `Referrer-Policy "strict-origin-when-cross-origin"`.
+  * Dynamic HTTP compression using `zstd` and `gzip`.
+  * 1-year immutable caching for content-hashed assets (`/assets/*`).
+  * Zero-cache revalidation (`max-age=0, must-revalidate`) for PWA manifest (`/manifest.webmanifest`) and service worker (`/sw.js`) to guarantee prompt client updates.
+* Add native container health monitoring:
+  * Docker `HEALTHCHECK` with `wget --no-verbose --tries=1 --spider http://localhost:80/ || exit 1`.
+* Create `frontend/.dockerignore` to exclude local `node_modules/`, `dist/`, and environment files from build contexts.
+* Document local verification steps in `docs/frontend-container-verification.md`.
+
+### Verification Checklist
+- [x] Multi-stage build verification: Built `marginalia-frontend:test` successfully with ultra-lightweight image footprint (61.5 MB).
+- [x] Non-root process execution: Verified Caddy process runs as unprivileged user UID `1001` via `docker top`.
+- [x] Root HTML & security headers: Verified HTTP 200 OK with `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, and `Referrer-Policy: strict-origin-when-cross-origin`.
+- [x] PWA manifest & service worker caching: Verified `Cache-Control: public, max-age=0, must-revalidate` on `/manifest.webmanifest` and `/sw.js`.
+- [x] Static asset caching: Verified `Cache-Control: public, max-age=31536000, immutable` on `/assets/*`.
+- [x] SPA route fallback: Verified non-existent routes (e.g. `/feeds/all`) return HTTP 200 with `index.html`.
+- [x] Compression verification: Verified `Content-Encoding: zstd` and `Content-Encoding: gzip` responses.
+- [x] Docker native health check: Container reported `healthy` status via Docker healthcheck.
+- [x] Documentation: Created `docs/frontend-container-verification.md`.
+
