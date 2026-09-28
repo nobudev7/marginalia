@@ -24,7 +24,7 @@ FROM caddy:2-alpine
 # Create unprivileged runtime user and configure directory permissions
 RUN adduser -D -u 1001 marginalia && \
     mkdir -p /config/caddy /data/caddy /usr/share/caddy && \
-    chown -R marginalia:marginalia /config/caddy /data/caddy /usr/share/caddy
+    chown -R marginalia:marginalia /config /data /usr/share/caddy
 
 # Copy Caddyfile configuration
 COPY Caddyfile /etc/caddy/Caddyfile

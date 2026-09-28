@@ -1,0 +1,91 @@
+# ==============================================================================
+# Marginalia Production Container Orchestration
+# Single-command orchestration linking Caddy, Spring Boot backend, and MySQL 8.4
+# ==============================================================================
+
+services:
+  caddy:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: marginalia-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      - DOMAIN_NAME=${DOMAIN_NAME:-localhost}
+      - ACME_EMAIL=${ACME_EMAIL:-admin@example.com}
+      - BACKEND_URL=backend:8080
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - marginalia_network
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: marginalia-backend
+    restart: unless-stopped
+    environment:
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-prod}
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_NAME=${DB_NAME:-marginalia}
+      - DB_USER=${DB_USER:-marginalia_user}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_USE_SSL=${DB_USE_SSL:-false}
+      - DB_ALLOW_PUBLIC_KEY=${DB_ALLOW_PUBLIC_KEY:-true}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID:-}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET:-}
+      - AUTH_WHITELIST_EMAILS=${AUTH_WHITELIST_EMAILS:-}
+      - DEV_MODE=${DEV_MODE:-false}
+      - FRONTEND_URL=${FRONTEND_URL:-https://${DOMAIN_NAME:-localhost}}
+      - SECURE_COOKIE=${SECURE_COOKIE:-true}
+      - CRAWLER_INTERVAL=${CRAWLER_INTERVAL:-15m}
+      - CRAWLER_MAX_FEED_SIZE=${CRAWLER_MAX_FEED_SIZE:-10MB}
+      - JAVA_OPTS=-XX:MaxRAMPercentage=75.0 -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - marginalia_network
+
+  mysql:
+    image: mysql:8.4
+    container_name: marginalia-mysql
+    restart: unless-stopped
+    environment:
+      - MYSQL_DATABASE=${DB_NAME:-marginalia}
+      - MYSQL_USER=${DB_USER:-marginalia_user}
+      - MYSQL_PASSWORD=${DB_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql.cnf:/etc/mysql/conf.d/custom.cnf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$${MYSQL_ROOT_PASSWORD} || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - marginalia_network
+
+volumes:
+  mysql_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  marginalia_network:
+    driver: bridge

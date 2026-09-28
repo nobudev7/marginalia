@@ -1,0 +1,18 @@
+# MySQL 8.4 LTS configuration for Marginalia production VPS deployment
+# Optimized for small memory footprint (1 GB - 2 GB RAM instances)
+
+[mysqld]
+# Internationalization: UTF-8 full unicode encoding
+character-set-server = utf8mb4
+collation-server = utf8mb4_unicode_ci
+
+# Memory tuning: buffer pool sized for 1 GB - 2 GB Lightsail instances
+innodb_buffer_pool_size = 256M
+innodb_redo_log_capacity = 64M
+
+# Connection limits: prevent connection exhaustion on small VPS
+max_connections = 50
+
+# Performance and durability
+innodb_flush_log_at_trx_commit = 2
+innodb_file_per_table = 1

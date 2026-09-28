@@ -644,3 +644,29 @@ curl -s http://localhost:5173/api/auth/status
 - [x] Backend test suite: Confirmed all 136 tests pass with `forward-headers-strategy: framework`.
 - [x] Documentation: Created `docs/reverse-proxy-tls-verification.md`.
 
+---
+
+## 2026-09-27 — Phase 5: Production Container Orchestration (Step 5.4)
+
+### Scope & Goals
+* Implement single-command production Docker Compose orchestration (`deploy/compose.yaml`):
+  * **Caddy Service (`marginalia-caddy`)**: Builds from `frontend/Dockerfile` into production static asset server and TLS reverse proxy. Binds public ports `80`, `443` (TCP/UDP HTTP/3). Persists Let's Encrypt certificates across container lifecycles in `caddy_data` volume. Waits for backend healthcheck (`condition: service_healthy`).
+  * **Backend Service (`marginalia-backend`)**: Builds from `backend/Dockerfile` into unprivileged Java 25 runtime. Configured with production Spring profile, database connection parameters, OAuth2 secrets, and JVM memory ergonomics (`-XX:MaxRAMPercentage=75.0 -XX:+UseG1GC`). Isolated within private bridge network (`marginalia_network`) without exposing ports to public Internet. Waits for database healthcheck (`condition: service_healthy`).
+  * **Database Service (`marginalia-mysql`)**: Uses official `mysql:8.4` LTS image with custom memory tuning in `deploy/mysql.cnf` (`innodb_buffer_pool_size = 256M`). Data persisted in named volume `mysql_data`. Includes native container healthcheck via `mysqladmin ping`.
+  * **Network Isolation**: All 3 services communicate over an isolated bridge network `marginalia_network`.
+* Create production MySQL configuration (`deploy/mysql.cnf`):
+  * Configure UTF-8 full unicode (`utf8mb4` / `utf8mb4_unicode_ci`), buffer pool size (256M), redo log capacity (64M), and connection ceiling (50) optimized for 1 GB–2 GB Lightsail instances.
+* Create environment template (`deploy/.env.example`):
+  * Document all configuration parameters: domain bindings, Let's Encrypt email, database credentials, OAuth2 secrets, whitelist emails, session security, and crawler tuning.
+* Fix directory ownership in `frontend/Dockerfile`:
+  * Ensure `/config` and `/data` are owned by `marginalia:marginalia` so Caddy can write ACME certificates to named volumes when running as an unprivileged user.
+* Document local verification and production runbook in `docs/production-orchestration-verification.md`.
+
+### Verification Checklist
+- [x] Compose configuration validation: `docker compose --env-file deploy/.env.example -f deploy/compose.yaml config` validated successfully with return code 0.
+- [x] MySQL configuration validation: `mysqld --validate-config` confirmed `deploy/mysql.cnf` syntax complies with MySQL 8.4 LTS.
+- [x] Volume permissions fix: Verified unprivileged user `marginalia` can write to named volumes mounted at `/data` and `/config`.
+- [x] Secret isolation: Confirmed `.env.example` provides comprehensive template without leaking actual credentials.
+- [x] Cascading healthchecks: Verified service dependency graph (`caddy -> backend -> mysql`) via healthcheck conditions.
+- [x] Documentation: Created `docs/production-orchestration-verification.md`.
+
