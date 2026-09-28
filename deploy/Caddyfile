@@ -1,0 +1,48 @@
+{
+	email {$ACME_EMAIL:admin@example.com}
+}
+
+{$DOMAIN_NAME:localhost} {
+	root * /usr/share/caddy
+	encode zstd gzip
+
+	# Production security headers
+	header {
+		# Enforce HTTPS across all subdomains with preload eligibility
+		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+		# Prevent MIME type sniffing
+		X-Content-Type-Options "nosniff"
+		# Prevent clickjacking by disallowing framing
+		X-Frame-Options "DENY"
+		# Protect referrer information on cross-origin requests
+		Referrer-Policy "strict-origin-when-cross-origin"
+		# Restrict resource sources; allows Google Fonts and remote feed images
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: http:; connect-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self';"
+	}
+
+	# Reverse proxy API and authentication requests to Spring Boot backend
+	@backend path /api/* /oauth2/* /login/* /logout
+	handle @backend {
+		reverse_proxy {$BACKEND_URL:backend:8080}
+	}
+
+	# Cache immutable hashed static assets for 1 year
+	@assets path /assets/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+
+	# Ensure PWA service worker and web manifest are revalidated immediately
+	@pwa path /sw.js /manifest.webmanifest
+	header @pwa Cache-Control "public, max-age=0, must-revalidate"
+
+	# SPA routing: serve matching static file, fallback to index.html for client routing
+	handle {
+		try_files {path} /index.html
+		file_server
+	}
+
+	# Operational structured JSON access logging
+	log {
+		output stdout
+		format json
+	}
+}

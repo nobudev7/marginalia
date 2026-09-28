@@ -610,3 +610,37 @@ curl -s http://localhost:5173/api/auth/status
 - [x] Docker native health check: Container reported `healthy` status via Docker healthcheck.
 - [x] Documentation: Created `docs/frontend-container-verification.md`.
 
+---
+
+## 2026-09-27 — Phase 5: Reverse Proxy & Automated TLS Configuration (Step 5.3)
+
+### Scope & Goals
+* Implement production-grade `deploy/Caddyfile` for automated TLS termination, reverse proxy routing, and static file delivery:
+  * Automated TLS certificate issuance and renewal via Let's Encrypt with configurable `{$ACME_EMAIL}` and `{$DOMAIN_NAME}` environment variables.
+  * Reverse proxy routing for backend endpoints (`/api/*`, `/oauth2/*`, `/login/*`, `/logout`) directed to `{$BACKEND_URL:backend:8080}` with automatic proxy header forwarding (`X-Forwarded-For`, `X-Forwarded-Proto`, `X-Forwarded-Host`).
+  * Single Page Application (SPA) routing fallback (`try_files {path} /index.html`) ensuring seamless client-side routing.
+  * Hardened HTTP security headers:
+    * `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`
+    * `X-Content-Type-Options: nosniff`
+    * `X-Frame-Options: DENY`
+    * `Referrer-Policy: strict-origin-when-cross-origin`
+    * `Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: http:; connect-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self';`
+  * High-efficiency content compression via `encode zstd gzip`.
+  * Caching policy: 1-year immutable caching for `/assets/*` and immediate revalidation (`max-age=0, must-revalidate`) for PWA manifest and service worker.
+  * Structured JSON access logging to `stdout` for container log ingestion.
+* Configure Spring Boot reverse proxy compatibility:
+  * In `backend/src/main/resources/application.yml`: configure `server.forward-headers-strategy: framework` so Spring Boot accurately reconstructs external HTTPS URLs and redirect URIs from reverse proxy headers.
+* Validate Caddyfile syntax using Docker and verify runtime behaviors against local backend.
+* Create documentation in `docs/reverse-proxy-tls-verification.md`.
+
+### Verification Checklist
+- [x] Syntax validation: Verified `deploy/Caddyfile` using `caddy validate` with zero warnings or errors.
+- [x] Security headers: Verified HSTS, Content-Security-Policy, X-Frame-Options, X-Content-Type-Options, and Referrer-Policy on root response.
+- [x] API reverse proxying: Verified `curl -i http://localhost:3001/api/auth/status` forwards through Caddy to backend and returns `{"authenticated":false}`.
+- [x] Authentication & session cookie forwarding: Verified `POST /api/auth/dev-login` issues valid `Set-Cookie: MARGINALIA_SESSION=...`.
+- [x] SPA fallback: Verified deep route `/feeds/all` falls back to `/index.html` with HTTP 200 OK.
+- [x] Dynamic compression: Verified `Content-Encoding: zstd` response.
+- [x] Structured JSON logging: Verified stdout log entries contain structured JSON with duration, size, and status.
+- [x] Backend test suite: Confirmed all 136 tests pass with `forward-headers-strategy: framework`.
+- [x] Documentation: Created `docs/reverse-proxy-tls-verification.md`.
+
