@@ -97,17 +97,99 @@ docker exec marginalia-mysql sh -c 'mysql -u root -p"$MYSQL_ROOT_PASSWORD" -e "D
 
 ## 4. Production Host Scheduling (Lightsail Setup)
 
-On your production server (AWS Lightsail instance), configure a nightly cron job to execute the backup script automatically at 02:00 UTC:
+On your production server (AWS Lightsail Debian 12 instance), you can automate daily database backups using either a native **`systemd.timer`** (recommended) or a traditional **`cron`** job. Both approaches execute transiently with zero idle memory overhead.
 
+---
+
+### Option A: `systemd.timer` (Recommended)
+
+`systemd.timer` is the recommended method on Debian 12 / Ubuntu. It provides automatic recovery for missed schedules (`Persistent=true`), waits for Docker to be ready before firing, centralizes logs in `journalctl` with automated rotation, and allows CPU/I/O priority throttling.
+
+#### 1. Create the Service Unit
+Create `/etc/systemd/system/marginalia-backup.service`:
+
+```ini
+[Unit]
+Description=Marginalia Automated Database Backup
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/opt/marginalia
+ExecStart=/opt/marginalia/deploy/backup.sh
+StandardOutput=journal
+StandardError=journal
+
+# Resource safeguards for 1 GB RAM VPS
+Nice=19
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+```
+
+#### 2. Create the Timer Unit
+Create `/etc/systemd/system/marginalia-backup.timer`:
+
+```ini
+[Unit]
+Description=Run Marginalia Database Backup Daily at 02:00 UTC
+
+[Timer]
+OnCalendar=*-*-* 02:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+```
+
+> [!TIP]
+> `Persistent=true` ensures that if the server was offline, rebooting, or under maintenance at 02:00 UTC, the backup will execute immediately when the instance boots up.
+
+#### 3. Enable and Start the Timer
 ```bash
-# Open host crontab editor
+sudo systemctl daemon-reload
+sudo systemctl enable --now marginalia-backup.timer
+```
+
+#### 4. Monitor & Inspect
+* **View next scheduled run and timer status**:
+  ```bash
+  systemctl list-timers marginalia-backup
+  ```
+* **View recent execution logs**:
+  ```bash
+  journalctl -u marginalia-backup.service -n 50
+  ```
+* **Trigger an immediate test run**:
+  ```bash
+  sudo systemctl start marginalia-backup.service
+  sudo systemctl status marginalia-backup.service
+  ```
+
+---
+
+### Option B: Traditional `cron`
+
+If you prefer classic crontab scheduling:
+
+#### 1. Open the Host Crontab
+```bash
 crontab -e
 ```
 
-Add the following cron entry (adjust path to your application directory):
+#### 2. Add the Nightly Schedule
+Add the following line to execute daily at 02:00 UTC (adjust path to match your deployment directory):
 
 ```cron
 0 2 * * * /opt/marginalia/deploy/backup.sh >> /var/log/marginalia-backup.log 2>&1
 ```
 
-To enable off-site cloud replication, ensure the AWS CLI is configured on the host (`aws configure`) and define `S3_BUCKET=s3://your-bucket-name/marginalia` in `deploy/.env`.
+---
+
+### Off-Site Cloud Replication (AWS S3)
+
+Regardless of whether you choose `systemd` or `cron`, you can enable automated off-site cloud replication:
+1. Ensure the AWS CLI is installed and configured on the host (`aws configure`).
+2. Define `S3_BUCKET=s3://your-bucket-name/marginalia` in `deploy/.env`.
+3. The backup script will automatically upload the encrypted backup (`--sse AES256`) to your bucket after creating the local archive.
