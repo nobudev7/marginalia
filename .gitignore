@@ -51,6 +51,8 @@ pnpm-debug.log*
 # Local Docker / Database data
 mysql_data/
 .data/
+backups/
+*.sql
 *.sql.gz
 
 # Secrets & Local Overrides

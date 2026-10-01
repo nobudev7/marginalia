@@ -670,3 +670,34 @@ curl -s http://localhost:5173/api/auth/status
 - [x] Cascading healthchecks: Verified service dependency graph (`caddy -> backend -> mysql`) via healthcheck conditions.
 - [x] Documentation: Created `docs/production-orchestration-verification.md`.
 
+---
+
+## 2026-09-28 — Phase 5: Automated Database Backup & Disaster Recovery (Step 5.5)
+
+### Scope & Goals
+* Implement automated hot backup script (`deploy/backup.sh`):
+  * Non-blocking `mysqldump` utilizing `--single-transaction`, `--quick`, `--no-tablespaces`, `--routines`, `--triggers`, `--events`, `--set-gtid-purged=OFF`, and `--default-character-set=utf8mb4`.
+  * Stream compressed dumps directly through `gzip -9` into `deploy/backups/marginalia_${DB_NAME}_${TIMESTAMP}.sql.gz`.
+  * Validate archive integrity via `gzip -t` immediately following dump creation.
+  * Restrict backup permissions to owner-only (`chmod 600`).
+  * Implement local backup retention rotation pruning backups older than 7 days (`find -mtime +7 -delete`).
+  * Add optional off-site AWS S3 bucket synchronization (`aws s3 cp --sse AES256`).
+* Implement disaster recovery restoration script (`deploy/restore.sh`):
+  * Support compressed (`.sql.gz`) and uncompressed (`.sql`) database dumps.
+  * Verify archive integrity with `gzip -t` prior to execution.
+  * Interactive safety confirmation prompt (`read -p`) with `--force` flag for automated recovery pipelines.
+  * Ensure target database exists with `utf8mb4` encoding before streaming data.
+  * Verify Flyway schema migration history (`flyway_schema_history`) and table row counts (`categories`, `feeds`, `articles`) following restore.
+* Update `.gitignore` to strictly exclude `backups/`, `*.sql`, and `*.sql.gz` files from repository tracking.
+* Verify backup and disaster recovery execution locally against running MySQL container.
+* Create documentation in `docs/backup-restore-verification.md`.
+
+### Verification Checklist
+- [x] Hot backup execution: Ran `./deploy/backup.sh` against container `marginalia-mysql`, producing compressed archive (`3.6K`).
+- [x] Archive integrity validation: Confirmed `gzip -t` succeeds on generated backup archive.
+- [x] Permission hardening: Verified backup file permissions set to `-rw-------` (`600`).
+- [x] Disaster recovery restore verification: Successfully restored backup archive into sandbox database `marginalia_restore_test` using `./deploy/restore.sh`.
+- [x] Flyway schema validation: Confirmed `flyway_schema_history` table verified with migrations 1, 2, and 3.
+- [x] Row count audit: Restored schema and row counts confirmed.
+- [x] Documentation: Created `docs/backup-restore-verification.md`.
+
