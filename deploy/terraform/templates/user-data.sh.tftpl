@@ -1,0 +1,113 @@
+#!/bin/bash
+# ==============================================================================
+# Marginalia — First-Boot Bootstrap (cloud-init user_data)
+# Rendered by Terraform templatefile(). Bash variables use $VAR (no braces)
+# to avoid clashing with Terraform interpolation syntax.
+#
+# Log:    /var/log/marginalia-bootstrap.log
+# Marker: /var/lib/marginalia-bootstrap.done
+# ==============================================================================
+set -euo pipefail
+exec > >(tee -a /var/log/marginalia-bootstrap.log) 2>&1
+
+echo "==> Marginalia bootstrap started: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+export DEBIAN_FRONTEND=noninteractive
+SWAP_SIZE_GB=${swap_size_gb}
+APP_DIR="${app_dir}"
+ADMIN_USER="${admin_user}"
+
+# ------------------------------------------------------------------------------
+# 1. Swap file (memory resilience on 1 GB instances)
+# ------------------------------------------------------------------------------
+if [ "$SWAP_SIZE_GB" -gt 0 ] && [ ! -f /swapfile ]; then
+  echo "==> Creating $SWAP_SIZE_GB GB swap file"
+  fallocate -l "$SWAP_SIZE_GB"G /swapfile
+  chmod 600 /swapfile
+  mkswap /swapfile
+  swapon /swapfile
+  grep -q '^/swapfile ' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+fi
+
+cat > /etc/sysctl.d/99-marginalia.conf <<'EOF'
+# Prefer RAM; only swap under real memory pressure
+vm.swappiness = 10
+vm.vfs_cache_pressure = 50
+EOF
+sysctl --system >/dev/null
+
+# ------------------------------------------------------------------------------
+# 2. Base packages
+# ------------------------------------------------------------------------------
+echo "==> Installing base packages"
+apt-get update -y
+apt-get install -y --no-install-recommends \
+  ca-certificates curl gnupg git fail2ban unattended-upgrades
+
+# fail2ban: default sshd jail via systemd journal backend (Debian 12)
+cat > /etc/fail2ban/jail.d/sshd.local <<'EOF'
+[sshd]
+enabled = true
+backend = systemd
+maxretry = 5
+bantime = 1h
+EOF
+systemctl enable --now fail2ban
+
+# Automatic security updates
+systemctl enable --now unattended-upgrades
+
+# ------------------------------------------------------------------------------
+# 3. Docker Engine + Compose plugin (official Docker apt repository)
+# ------------------------------------------------------------------------------
+if ! command -v docker >/dev/null 2>&1; then
+  echo "==> Installing Docker Engine"
+  install -m 0755 -d /etc/apt/keyrings
+  curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+  chmod a+r /etc/apt/keyrings/docker.asc
+
+  ARCH="$(dpkg --print-architecture)"
+  CODENAME="$(. /etc/os-release && echo "$VERSION_CODENAME")"
+  echo "deb [arch=$ARCH signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian $CODENAME stable" \
+    > /etc/apt/sources.list.d/docker.list
+
+  apt-get update -y
+  apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+fi
+
+# Cap container log growth to protect the small root disk
+mkdir -p /etc/docker
+cat > /etc/docker/daemon.json <<'EOF'
+{
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "10m",
+    "max-file": "3"
+  }
+}
+EOF
+
+systemctl enable docker
+systemctl restart docker
+
+# Allow the SSH user to run docker without sudo
+if id "$ADMIN_USER" >/dev/null 2>&1; then
+  usermod -aG docker "$ADMIN_USER"
+fi
+
+# ------------------------------------------------------------------------------
+# 4. Application directory
+# ------------------------------------------------------------------------------
+mkdir -p "$APP_DIR"
+if id "$ADMIN_USER" >/dev/null 2>&1; then
+  chown "$ADMIN_USER":"$ADMIN_USER" "$APP_DIR"
+fi
+
+# ------------------------------------------------------------------------------
+# Done
+# ------------------------------------------------------------------------------
+touch /var/lib/marginalia-bootstrap.done
+echo "==> Marginalia bootstrap finished: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+docker --version
+docker compose version
+swapon --show || true

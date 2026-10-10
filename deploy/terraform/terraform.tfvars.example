@@ -1,0 +1,99 @@
+# ==============================================================================
+# Marginalia — Terraform Configuration Template
+# Copy this file to "terraform.tfvars" and customize for your deployment:
+#   cp terraform.tfvars.example terraform.tfvars
+#
+# DO NOT commit "terraform.tfvars" with sensitive settings to version control.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. AWS Region & Lightsail Compute Instance
+# ------------------------------------------------------------------------------
+# AWS region where your Lightsail instance will be created.
+aws_region = "us-east-1"
+
+# Availability Zone (leave null to use default "<aws_region>a").
+# availability_zone = "us-east-1a"
+
+# Name of the Lightsail instance and base prefix for related resources.
+instance_name = "marginalia"
+
+# OS Blueprint. Debian 12 is recommended for reliability and stability.
+blueprint_id = "debian_12"
+
+# Bundle size (specifies CPU, RAM, and SSD storage).
+# Available standard Linux options (IPv4 included):
+#   - "micro_3_0" : 1 GB RAM, 2 vCPUs, 40 GB SSD (~$7/mo, recommended budget plan with swap)
+#   - "small_3_0" : 2 GB RAM, 2 vCPUs, 60 GB SSD (~$12/mo, comfortable headroom)
+bundle_id = "micro_3_0"
+
+# Size in GB for the automated swapfile created on first boot (set 0 to disable).
+# Strongly recommended on 1 GB instances to prevent out-of-memory container terminations.
+swap_size_gb = 2
+
+# Directory on the remote host where the Marginalia repository will reside.
+app_dir = "/opt/marginalia"
+
+# ------------------------------------------------------------------------------
+# 2. SSH Access & Firewall Hardening
+# ------------------------------------------------------------------------------
+# Name of the Lightsail key pair resource.
+key_pair_name = "marginalia-key"
+
+# Path to your local SSH public key to import.
+public_key_path = "~/.ssh/id_ed25519.pub"
+
+# Restrict SSH (port 22) access to your specific IP address or CIDR range.
+# Default ["0.0.0.0/0"] allows SSH from anywhere.
+# To restrict strictly to your home/office IP:
+# ssh_allowed_cidrs = ["203.0.113.195/32"]
+ssh_allowed_cidrs = ["0.0.0.0/0"]
+
+# ------------------------------------------------------------------------------
+# 3. Optional Route 53 DNS Subdomain Management (Step 5.6.3)
+# ------------------------------------------------------------------------------
+# Set to true to automatically create an A-record in Route 53 for your subdomain.
+# Set to false if you prefer managing DNS manually or use an external registrar.
+manage_route53_record = false
+
+# The subdomain or full domain where Marginalia will be reachable.
+# Example: "reader.yourdomain.com" or "marginalia.yourdomain.com"
+# subdomain_name = "reader.yourdomain.com"
+
+# Hosted Zone identification (provide EITHER route53_zone_id OR route53_zone_name):
+# Option A: Exact Hosted Zone ID from Route 53
+# route53_zone_id = "Z0123456789ABCDEF"
+
+# Option B: Root domain name (Terraform will look up the zone automatically)
+# route53_zone_name = "yourdomain.com"
+
+# DNS TTL in seconds for the A-record (default 300).
+# route53_ttl = 300
+
+# ------------------------------------------------------------------------------
+# 4. Optional AWS S3 Off-Site Backup Storage (Step 5.6.2)
+# ------------------------------------------------------------------------------
+# Set to true to create a dedicated, private S3 bucket for nightly encrypted backups.
+# Set to false to manage S3 manually or rely on local host retention.
+enable_s3_backup_bucket = false
+
+# Explicit bucket name (must be globally unique across all of AWS).
+# If left null, a bucket will be created using "s3_bucket_prefix" with a random suffix.
+# s3_bucket_name = "my-unique-marginalia-backups"
+
+# Bucket name prefix if s3_bucket_name is left null.
+s3_bucket_prefix = "marginalia-backup-"
+
+# Retention window in days. Backups older than this are automatically deleted from S3.
+s3_backup_retention_days = 90
+
+# Set to true to create a dedicated IAM user and scoped policy for backup uploads.
+create_s3_backup_iam_user = false
+
+# ------------------------------------------------------------------------------
+# 5. Resource Tags
+# ------------------------------------------------------------------------------
+tags = {
+  Environment = "production"
+  Application = "marginalia"
+}
