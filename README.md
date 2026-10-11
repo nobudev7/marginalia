@@ -35,8 +35,8 @@ Marginalia is designed to provide a clean, personal reading experience:
 * [x] **Phase 1: Project Scaffolding & Database Setup** — Backend foundation, Flyway schema, JPA entities/repositories, local Docker compose.
 * [x] **Phase 2: Feed Ingestion Engine & OPML** — ROME crawler, conditional HTTP fetching, OPML import/export, and background scheduler.
 * [x] **Phase 3: Security & Session Persistence** — OAuth2 client (Google & GitHub), database-backed email whitelist, persistent 90-day JDBC sessions.
-* [ ] **Phase 4: Frontend Development (React PWA)** — Responsive stream layout, reading pane, unread counters, and PWA manifest.
-* [ ] **Phase 5: Deployment & AWS Lightsail Automation** — Multi-stage Dockerfiles, Caddyfile, and automated S3 backup script.
+* [x] **Phase 4: Frontend Development (React PWA)** — Responsive stream layout, reading drawer, unread counters, keyboard shortcuts, and installable PWA manifest.
+* [x] **Phase 5: Deployment & AWS Lightsail Automation** — Multi-stage containerization, Caddy automated TLS reverse proxy, Compose orchestration, automated backups, and Terraform IaC.
 
 ---
 
@@ -69,13 +69,47 @@ For detailed IDE configurations and security posture rationale, see the [Local D
 
 ---
 
+## Production Deployment (AWS Lightsail)
+
+Marginalia is designed for single-node cloud deployment via AWS Lightsail ($7/mo `micro_3_0` plan with 2 GB swap), using Docker Compose and Caddy for automatic Let's Encrypt TLS:
+
+1. **Provision Infrastructure via Terraform**:
+   ```bash
+   cd deploy/terraform
+   cp terraform.tfvars.example terraform.tfvars
+   # Configure your SSH key path, domain name, and optional S3/Route 53 toggles
+   terraform init && terraform apply
+   ```
+2. **Configure & Launch on Host**:
+   SSH into the instance, configure production secrets in `deploy/.env`, and launch containers:
+   ```bash
+   cd /opt/marginalia/deploy
+   cp .env.example .env && chmod 600 .env
+   # Edit .env with your domain, database passwords, and OAuth2 credentials
+   docker compose -f compose.yaml up -d --build
+   ```
+3. **Schedule Automated Backups**:
+   Enable the systemd timer for non-blocking daily backups at 02:00 UTC:
+   ```bash
+   sudo systemctl enable --now marginalia-backup.timer
+   ```
+
+For complete step-by-step instructions, Route 53 subdomain configuration, and disaster recovery procedures, see the [Production Deployment Guide](docs/deployment-guide.md).
+
+---
+
 ## Documentation
 
+* [Production Deployment Guide](docs/deployment-guide.md) — Complete operations runbook for AWS Lightsail, Terraform, and Caddy TLS.
+* [Production Orchestration Guide](docs/production-orchestration-verification.md) — Docker Compose architecture, MySQL memory tuning, and cascading healthchecks.
+* [Backup & Disaster Recovery Guide](docs/backup-restore-verification.md) — Hot backup script, systemd timer / cron scheduling, and restore verification runbook.
+* [Reverse Proxy & TLS Guide](docs/reverse-proxy-tls-verification.md) — Caddy configuration, ACME certificate provisioning, and HTTP security headers.
 * [OAuth2 Setup Guide](docs/oauth2-setup-guide.md) — Step-by-step Google and GitHub OAuth2 configuration.
 * [Local Development Guide](docs/local-development-guide.md) — Activating the `dev` profile, safe defaults, and testing dev-login.
 * [Email Whitelist Administration Guide](docs/whitelist-admin-guide.md) — Managing access, safety measures, and admin REST endpoints.
 * [Future Expansion to Public Service (Path B)](docs/future-expansion-public-service.md) — Technical migration plan for global feed deduplication and multi-user scaling.
-* [Development Log](docs/dev-log.md) — Detailed changelog, architectural decisions, and API reference.
+* [Development Log](docs/dev-log.md) — Detailed changelog, architectural decisions, and verification records.
+
 
 
 

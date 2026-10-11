@@ -701,3 +701,51 @@ curl -s http://localhost:5173/api/auth/status
 - [x] Row count audit: Restored schema and row counts confirmed.
 - [x] Documentation: Created `docs/backup-restore-verification.md`.
 
+---
+
+## 2026-10-10 — Phase 5: Terraform IaC Automation & Lightsail Deployment Runbook (Step 5.6)
+
+### Scope & Goals
+* Implement declarative Infrastructure as Code (IaC) for AWS Lightsail in `deploy/terraform/`:
+  * **Core Compute & Networking (`main.tf`, `variables.tf`)**:
+    * AWS provider definition with version constraint (`hashicorp/aws >= 5.0, < 7.0`).
+    * SSH key pair resource (`aws_lightsail_key_pair`) importing local public key (`var.public_key_path`).
+    * Lightsail Debian 12 compute instance (`aws_lightsail_instance`) with configurable bundle size (`bundle_id`, default `micro_3_0`).
+    * First-boot cloud-init bootstrap template (`templates/user-data.sh.tftpl`):
+      * Automatically provisions 2 GB swap space (`/swapfile` with `swappiness=10`).
+      * Installs essential packages (`ca-certificates`, `curl`, `gnupg`, `git`, `fail2ban`, `unattended-upgrades`).
+      * Installs official Docker Engine and Compose plugin from Docker's official apt repository.
+      * Caps container log size (`10m` x 3 files) in `/etc/docker/daemon.json` to prevent disk exhaustion.
+      * Adds `admin` user to the `docker` group and creates `/opt/marginalia` application directory.
+    * Static public IPv4 address (`aws_lightsail_static_ip`) and attachment (`aws_lightsail_static_ip_attachment`).
+    * Public firewall (`aws_lightsail_instance_public_ports`) strictly restricted to ports 22 (SSH), 80 (HTTP), 443 (HTTPS TCP), and 443 (HTTP/3 UDP).
+  * **Configurable S3 Off-Site Backup Storage (`s3.tf`)**:
+    * Feature toggle `enable_s3_backup_bucket` (default: `false`).
+    * When enabled: creates dedicated private S3 bucket, default AES256 server-side encryption, public access block, automated lifecycle expiration (`s3_backup_retention_days`), and optional scoped IAM uploader user/policy.
+  * **Configurable Route 53 DNS Subdomain Management (`dns.tf`)**:
+    * Feature toggle `manage_route53_record` (default: `false`).
+    * When enabled: resolves hosted zone by ID (`route53_zone_id`) or root domain name (`route53_zone_name`), and creates an `A` record pointing to the Lightsail static IP with 300s TTL.
+  * **Outputs & Configuration Templates (`outputs.tf`, `terraform.tfvars.example`)**:
+    * Exports actionable outputs: `static_ip`, `ssh_command`, `dns_a_record_target`, `app_url`, Route 53 FQDN, S3 bucket URI, and IAM uploader credentials.
+    * Fully documented `terraform.tfvars.example` template.
+* Create comprehensive end-to-end production deployment guide and operations runbook in `docs/deployment-guide.md`:
+  * Phase 1: Local Terraform provisioning (`terraform init`, `plan`, `apply`).
+  * Phase 2: DNS routing configuration and propagation checks (`dig`, `nslookup`).
+  * Phase 3: Remote host SSH verification, cloud-init bootstrap validation, and repo setup.
+  * Phase 4: Production secrets and environment parameterization (`deploy/.env`).
+  * Phase 5: Container launch (`compose.yaml`) and automated Let's Encrypt TLS verification in Caddy.
+  * Phase 6: Automated backup scheduling via `systemd.timer` (`marginalia-backup.timer`).
+  * Phase 7: Day-2 maintenance, zero-downtime rolling updates, and disaster recovery restore runbook.
+* Update project documentation and roadmap in `README.md`.
+
+### Verification Checklist
+- [x] Terraform formatting: `terraform -chdir=deploy/terraform fmt -check` passed with 0 diffs.
+- [x] Schema validation (defaults): `terraform -chdir=deploy/terraform validate` succeeded with exit code 0.
+- [x] Schema validation (with S3 enabled): Validated successfully with `TF_VAR_enable_s3_backup_bucket=true` and `TF_VAR_create_s3_backup_iam_user=true`.
+- [x] Schema validation (with Route 53 enabled): Validated successfully with `TF_VAR_manage_route53_record=true`.
+- [x] Schema validation (all features enabled): Validated successfully with compute, S3, IAM, and Route 53 active simultaneously.
+- [x] Cloud-init syntax: Rendered template validated without syntax errors via `bash -n`.
+- [x] Variable template validation: Tested `terraform.tfvars.example` against Terraform schema.
+- [x] Documentation: Created `docs/deployment-guide.md` and finalized `README.md`.
+
+
