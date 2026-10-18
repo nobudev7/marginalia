@@ -79,8 +79,9 @@ cp terraform.tfvars.example terraform.tfvars
 Edit `terraform.tfvars` with your settings:
 
 ```hcl
-# AWS Region & Compute Size
+# AWS Region & Compute Size (Note: Lightsail is in us-west-2, us-east-1, us-east-2; not us-west-1)
 aws_region    = "us-east-1"
+
 instance_name = "marginalia"
 bundle_id     = "micro_3_0"   # 1 GB RAM, 2 vCPUs (~$7/mo with IPv4)
 swap_size_gb  = 2             # 2 GB swap ensures memory stability
@@ -232,7 +233,8 @@ Configure the following production parameters:
 ```bash
 # Domain & TLS Configuration
 DOMAIN_NAME=reader.yourdomain.com
-ACME_EMAIL=your-email@example.com
+ACME_EMAIL=your-email@example.com  # Optional: for urgent security revocation notices / fallback CA
+
 
 # Database Credentials (Generate strong random passwords)
 DB_NAME=marginalia

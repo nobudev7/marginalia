@@ -10,7 +10,10 @@
 # 1. AWS Region & Lightsail Compute Instance
 # ------------------------------------------------------------------------------
 # AWS region where your Lightsail instance will be created.
+# Note: Lightsail is NOT available in us-west-1 (N. California).
+# Supported US regions: "us-west-2" (Oregon), "us-east-1" (N. Virginia), "us-east-2" (Ohio).
 aws_region = "us-east-1"
+
 
 # Availability Zone (leave null to use default "<aws_region>a").
 # availability_zone = "us-east-1a"

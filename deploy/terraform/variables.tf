@@ -6,10 +6,31 @@
 # Region & Placement
 # ------------------------------------------------------------------------------
 variable "aws_region" {
-  description = "AWS region to deploy the Lightsail instance into."
+  description = "AWS region to deploy the Lightsail instance into. Note: Lightsail is not supported in us-west-1 (use us-west-2 for US West)."
   type        = string
   default     = "us-east-1"
+
+  validation {
+    condition = contains([
+      "us-east-1",
+      "us-east-2",
+      "us-west-2",
+      "ca-central-1",
+      "eu-central-1",
+      "eu-west-1",
+      "eu-west-2",
+      "eu-west-3",
+      "eu-north-1",
+      "ap-northeast-1",
+      "ap-northeast-2",
+      "ap-southeast-1",
+      "ap-southeast-2",
+      "ap-south-1"
+    ], var.aws_region)
+    error_message = "AWS Lightsail is not supported in region \"${var.aws_region}\". In the US, choose \"us-west-2\" (Oregon), \"us-east-1\" (N. Virginia), or \"us-east-2\" (Ohio)."
+  }
 }
+
 
 variable "availability_zone" {
   description = "Lightsail availability zone. Defaults to \"<aws_region>a\" when null."
