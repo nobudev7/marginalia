@@ -48,6 +48,10 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // The SPA navigation fallback serves the cached index.html for every
+        // navigation request. Server-handled routes (OAuth2 redirect, OAuth2
+        // callback, logout, API) must bypass it and reach the backend.
+        navigateFallbackDenylist: [/^\/api\//, /^\/oauth2\//, /^\/login\//, /^\/logout/],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.(?:googleapis|gstatic)\.com\/.*/i,

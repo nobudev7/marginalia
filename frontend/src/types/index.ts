@@ -54,6 +54,7 @@ export interface UserDto {
 export interface AuthStatus {
   authenticated: boolean;
   user?: UserDto;
+  devMode?: boolean;
 }
 
 export interface WhitelistEntryDto {

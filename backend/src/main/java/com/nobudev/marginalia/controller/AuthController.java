@@ -58,6 +58,8 @@ public class AuthController {
 
     /**
      * Non-throwing authentication status check for frontend bootstrap.
+     * Also reports whether dev mode is enabled so the UI can hide the
+     * dev-login shortcut in production.
      */
     @GetMapping("/status")
     public Map<String, Object> getAuthStatus() {
@@ -68,13 +70,15 @@ public class AuthController {
                 boolean isAdmin = whitelistService.isAdmin(user.getEmail());
                 return Map.of(
                         "authenticated", true,
-                        "user", AuthResponse.from(user, isAdmin)
+                        "user", AuthResponse.from(user, isAdmin),
+                        "devMode", devMode
                 );
             } catch (Exception ignored) {
             }
         }
         return Map.of(
-                "authenticated", false
+                "authenticated", false,
+                "devMode", devMode
         );
     }
 

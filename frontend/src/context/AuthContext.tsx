@@ -6,6 +6,7 @@ export interface AuthContextType {
   user: UserDto | null;
   loading: boolean;
   error: string | null;
+  devMode: boolean;
   checkAuth: () => Promise<void>;
   loginWithDev: (email?: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -18,11 +19,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Fail-closed: dev-login UI stays hidden unless the server reports dev mode
+  const [devMode, setDevMode] = useState(false);
 
   const checkAuth = useCallback(async () => {
     try {
       setLoading(true);
       const data = await apiFetch<AuthStatus>('/api/auth/status');
+      setDevMode(data.devMode === true);
       if (data.authenticated && data.user) {
         setUser(data.user);
       } else {
@@ -30,6 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } catch (err) {
       setUser(null);
+      setDevMode(false);
       console.error('Failed to verify session status:', err);
     } finally {
       setLoading(false);
@@ -97,6 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         loading,
         error,
+        devMode,
         checkAuth,
         loginWithDev,
         logout,

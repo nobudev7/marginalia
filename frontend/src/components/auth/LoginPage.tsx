@@ -3,7 +3,7 @@ import { ShieldAlert, Terminal, ArrowRight, Loader2, Sparkles } from 'lucide-rea
 import { useAuth } from '../../hooks/useAuth';
 
 export function LoginPage() {
-  const { error, clearError, loginWithDev, loading } = useAuth();
+  const { error, clearError, loginWithDev, loading, devMode } = useAuth();
   const [devEmail, setDevEmail] = useState('test@example.com');
   const [devLoggingIn, setDevLoggingIn] = useState(false);
 
@@ -102,6 +102,8 @@ export function LoginPage() {
             Marginalia is private. Only email addresses pre-authorized on the access whitelist can sign in.
           </p>
 
+          {devMode && (
+          <>
           {/* Divider */}
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
@@ -114,7 +116,7 @@ export function LoginPage() {
             </div>
           </div>
 
-          {/* Dev Mode Login Helper */}
+          {/* Dev Mode Login Helper (shown only when the server reports dev mode) */}
           <form onSubmit={handleDevSubmit} className="space-y-3 bg-paper-100/70 p-4 rounded-xl border border-paper-200">
             <div className="flex items-center space-x-2 text-xs font-semibold text-ink-700">
               <Terminal className="w-3.5 h-3.5 text-amberAccent-700" />
@@ -158,6 +160,8 @@ export function LoginPage() {
               Directly seeds an authenticated session in MySQL without requiring OAuth2 provider credentials.
             </p>
           </form>
+          </>
+          )}
         </div>
 
         {/* Footer info */}
