@@ -179,14 +179,14 @@ Lightsail executes `templates/user-data.sh.tftpl` on initial boot. Verify comple
 cloud-init status --wait
 
 # Inspect bootstrap log
-cat /var/log/marginalia-bootstrap.log
+sudo cat /var/log/cloud-init-output.log
 ```
 
 Confirm that the core prerequisites are active:
 
 ```bash
 # 1. Verify swap is active
-swapon --show
+sudo swapon --show
 free -h
 
 # 2. Verify Docker Engine and compose plugin
@@ -233,7 +233,7 @@ Configure the following production parameters:
 ```bash
 # Domain & TLS Configuration
 DOMAIN_NAME=reader.yourdomain.com
-ACME_EMAIL=your-email@example.com  # Optional: for urgent security revocation notices / fallback CA
+ACME_EMAIL=  # Optional: leave blank or set a real email
 
 
 # Database Credentials (Generate strong random passwords)
