@@ -291,7 +291,7 @@ export function Sidebar({
                                 await onDeleteFeed(feed.id);
                               }
                             }}
-                            className="opacity-0 group-hover/item:opacity-100 p-1 text-ink-400 hover:text-red-700 rounded transition-opacity"
+                            className="[@media(hover:hover)]:opacity-0 group-hover/item:opacity-100 p-1 text-ink-400 hover:text-red-700 rounded transition-opacity"
                             title="Unsubscribe"
                           >
                             <Trash2 className="w-3 h-3" />
@@ -377,7 +377,7 @@ export function Sidebar({
                               await onDeleteFeed(feed.id);
                             }
                           }}
-                          className="opacity-0 group-hover/item:opacity-100 p-1 text-ink-400 hover:text-red-700 rounded transition-opacity"
+                          className="[@media(hover:hover)]:opacity-0 group-hover/item:opacity-100 p-1 text-ink-400 hover:text-red-700 rounded transition-opacity"
                           title="Unsubscribe"
                         >
                           <Trash2 className="w-3 h-3" />
