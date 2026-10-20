@@ -13,7 +13,7 @@
 
     <groupId>com.nobudev</groupId>
     <artifactId>marginalia-backend</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>0.1.0</version>
     <name>marginalia-backend</name>
     <description>Marginalia RSS Reader Backend</description>
 
