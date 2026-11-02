@@ -226,6 +226,54 @@ export function useArticles({ filter, pageSize = 20, unreadOnly = false, onUnrea
     []
   );
 
+  // Mark all unread articles above a given article in the current stream as read
+  const markAboveAsRead = useCallback(
+    async (articleId: number) => {
+      const index = articles.findIndex((a) => a.id === articleId);
+      if (index <= 0) {
+        return;
+      }
+
+      const unreadAboveIds = articles
+        .slice(0, index)
+        .filter((a) => !a.isRead)
+        .map((a) => a.id);
+
+      if (unreadAboveIds.length === 0) {
+        return;
+      }
+
+      const idSet = new Set(unreadAboveIds);
+
+      // Optimistically mark articles above as read
+      setArticles((prev) =>
+        prev.map((a) => (idSet.has(a.id) ? { ...a, isRead: true } : a))
+      );
+
+      try {
+        const res = await fetch('/api/articles/mark-all-read', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(unreadAboveIds),
+          credentials: 'include',
+        });
+
+        if (!res.ok) {
+          throw new Error('Failed to mark above articles as read');
+        }
+
+        onUnreadChanged?.();
+      } catch (err: unknown) {
+        console.error('Failed to mark above articles as read:', err);
+        // Rollback optimistic update
+        setArticles((prev) =>
+          prev.map((a) => (idSet.has(a.id) ? { ...a, isRead: false } : a))
+        );
+      }
+    },
+    [articles, onUnreadChanged]
+  );
+
   // Mark all unread articles as read in active view
   const markAllAsRead = useCallback(async () => {
     // Optimistically mark visible items read
@@ -272,6 +320,7 @@ export function useArticles({ filter, pageSize = 20, unreadOnly = false, onUnrea
     refresh,
     toggleRead,
     toggleSave,
+    markAboveAsRead,
     markAllAsRead,
   };
 }

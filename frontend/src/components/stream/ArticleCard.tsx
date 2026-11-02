@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Bookmark, 
   Check, 
@@ -6,30 +6,106 @@ import {
   ExternalLink, 
   Rss, 
   Clock,
-  BookOpen
+  BookOpen,
+  ArrowUpToLine
 } from 'lucide-react';
 import type { ArticleDto } from '../../types';
 import { formatRelativeTime, stripHtml, estimateReadingTime } from '../../utils/formatters';
 
 interface ArticleCardProps {
   article: ArticleDto;
+  hasUnreadAbove?: boolean;
   onToggleRead: (id: number, currentRead: boolean) => void;
   onToggleSave: (id: number, currentSaved: boolean) => void;
+  onMarkAboveAsRead?: (id: number) => void;
   onSelectArticle?: (article: ArticleDto) => void;
+  onLongPress?: (article: ArticleDto) => void;
 }
 
 export function ArticleCard({
   article,
+  hasUnreadAbove = false,
   onToggleRead,
   onToggleSave,
+  onMarkAboveAsRead,
   onSelectArticle,
+  onLongPress,
 }: ArticleCardProps) {
   const [imageError, setImageError] = useState(false);
+  const longPressTimerRef = useRef<number | null>(null);
+  const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
+  const longPressTriggeredRef = useRef(false);
+
   const snippet = stripHtml(article.summary || article.content);
   const readingTime = estimateReadingTime(article.content || article.summary);
   const timeAgo = formatRelativeTime(article.publishedAt);
 
+  const clearLongPressTimer = () => {
+    if (longPressTimerRef.current !== null) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (longPressTimerRef.current !== null) {
+        window.clearTimeout(longPressTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!onLongPress) return;
+    if ((e.target as HTMLElement).closest('button, a')) return;
+
+    const touch = e.touches[0];
+    if (!touch) return;
+
+    touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
+    longPressTriggeredRef.current = false;
+    clearLongPressTimer();
+
+    longPressTimerRef.current = window.setTimeout(() => {
+      longPressTriggeredRef.current = true;
+      longPressTimerRef.current = null;
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        navigator.vibrate(15);
+      }
+      onLongPress(article);
+    }, 500);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (longPressTimerRef.current === null || !touchStartPosRef.current) return;
+    const touch = e.touches[0];
+    if (!touch) return;
+
+    const dx = touch.clientX - touchStartPosRef.current.x;
+    const dy = touch.clientY - touchStartPosRef.current.y;
+    if (Math.hypot(dx, dy) > 10) {
+      clearLongPressTimer();
+    }
+  };
+
+  const handleTouchEnd = () => {
+    clearLongPressTimer();
+  };
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    if (!onLongPress) return;
+    if ((e.target as HTMLElement).closest('button, a')) return;
+    if (window.matchMedia('(max-width: 639px)').matches) {
+      e.preventDefault();
+    }
+  };
+
   const handleCardClick = (e: React.MouseEvent) => {
+    if (longPressTriggeredRef.current) {
+      longPressTriggeredRef.current = false;
+      e.preventDefault();
+      return;
+    }
     // Don't trigger article selection if clicking interactive buttons or links
     if ((e.target as HTMLElement).closest('button, a')) {
       return;
@@ -40,7 +116,12 @@ export function ArticleCard({
   return (
     <article
       onClick={handleCardClick}
-      className={`group relative p-4 sm:p-5 rounded-2xl border transition-all duration-200 cursor-pointer ${
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
+      onContextMenu={handleContextMenu}
+      className={`group relative p-4 sm:p-5 rounded-2xl border transition-all duration-200 cursor-pointer select-none sm:select-auto ${
         article.isRead
           ? 'bg-paper-50/70 border-paper-200 hover:border-paper-300 hover:bg-paper-50'
           : 'bg-paper-50 border-paper-300/90 shadow-2xs hover:shadow-xs hover:border-amberAccent-400/60'
@@ -154,6 +235,23 @@ export function ArticleCard({
                   </>
                 )}
               </button>
+
+              {/* Desktop: Make above as read */}
+              {onMarkAboveAsRead && (
+                <button
+                  type="button"
+                  disabled={!hasUnreadAbove}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onMarkAboveAsRead(article.id);
+                  }}
+                  className="hidden sm:flex px-2.5 py-1 rounded-lg text-xs font-medium items-center space-x-1.5 text-ink-500 hover:text-amberAccent-800 hover:bg-paper-200/60 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+                  title="Make above as read"
+                >
+                  <ArrowUpToLine className="w-3.5 h-3.5 text-ink-400" />
+                  <span>Make above as read</span>
+                </button>
+              )}
 
               {/* Bookmark Star Toggle */}
               <button
