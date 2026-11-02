@@ -457,7 +457,7 @@ export function ArticleStream({
         <div
           className="md:hidden fixed inset-0 z-50 flex items-end justify-center p-4 pb-20 bg-ink-900/40 backdrop-blur-xs"
           onClick={() => {
-            if (Date.now() - longPressOpenedAtRef.current < 350) {
+            if (Date.now() - longPressOpenedAtRef.current < 400) {
               return;
             }
             setLongPressArticle(null);

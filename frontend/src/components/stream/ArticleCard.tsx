@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { 
   Bookmark, 
   Check, 
@@ -7,8 +7,7 @@ import {
   Rss, 
   Clock,
   BookOpen,
-  ArrowUpToLine,
-  MoreHorizontal
+  ArrowUpToLine
 } from 'lucide-react';
 import type { ArticleDto } from '../../types';
 import { formatRelativeTime, stripHtml, estimateReadingTime } from '../../utils/formatters';
@@ -34,27 +33,57 @@ export function ArticleCard({
 }: ArticleCardProps) {
   const [imageError, setImageError] = useState(false);
   const longPressTimerRef = useRef<number | null>(null);
-  const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
+  const touchStartPosRef = useRef<{
+    x: number;
+    y: number;
+    scrollY: number;
+    startTime: number;
+    moved: boolean;
+  } | null>(null);
   const longPressTriggeredRef = useRef(false);
 
   const snippet = stripHtml(article.summary || article.content);
   const readingTime = estimateReadingTime(article.content || article.summary);
   const timeAgo = formatRelativeTime(article.publishedAt);
 
-  const clearLongPressTimer = () => {
+  const clearLongPressTimer = useCallback(() => {
     if (longPressTimerRef.current !== null) {
       window.clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
     }
-  };
+  }, []);
 
   useEffect(() => {
     return () => {
-      if (longPressTimerRef.current !== null) {
-        window.clearTimeout(longPressTimerRef.current);
+      clearLongPressTimer();
+    };
+  }, [clearLongPressTimer]);
+
+  // Cancel any pending long-press if the viewport scrolls
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!touchStartPosRef.current) return;
+      if (Math.abs(window.scrollY - touchStartPosRef.current.scrollY) > 4) {
+        touchStartPosRef.current.moved = true;
+        clearLongPressTimer();
       }
     };
-  }, []);
+
+    window.addEventListener('scroll', handleScroll, { passive: true, capture: true });
+    return () => {
+      window.removeEventListener('scroll', handleScroll, { capture: true });
+    };
+  }, [clearLongPressTimer]);
+
+  const triggerLongPress = () => {
+    clearLongPressTimer();
+    if (longPressTriggeredRef.current || !onLongPress) return;
+    longPressTriggeredRef.current = true;
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      navigator.vibrate(15);
+    }
+    onLongPress(article);
+  };
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (!onLongPress) return;
@@ -63,37 +92,40 @@ export function ArticleCard({
     const touch = e.touches[0];
     if (!touch) return;
 
-    touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
+    touchStartPosRef.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+      scrollY: window.scrollY,
+      startTime: Date.now(),
+      moved: false,
+    };
     longPressTriggeredRef.current = false;
     clearLongPressTimer();
 
     longPressTimerRef.current = window.setTimeout(() => {
-      longPressTriggeredRef.current = true;
-      longPressTimerRef.current = null;
-      if (typeof navigator !== 'undefined' && navigator.vibrate) {
-        navigator.vibrate(15);
-      }
-      onLongPress(article);
+      triggerLongPress();
     }, 400);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (longPressTimerRef.current === null || !touchStartPosRef.current) return;
+    if (!touchStartPosRef.current) return;
     const touch = e.touches[0];
     if (!touch) return;
 
     const dx = touch.clientX - touchStartPosRef.current.x;
     const dy = touch.clientY - touchStartPosRef.current.y;
-    if (Math.hypot(dx, dy) > 15) {
+    const dScroll = Math.abs(window.scrollY - touchStartPosRef.current.scrollY);
+
+    if (Math.hypot(dx, dy) > 15 || dScroll > 4) {
+      touchStartPosRef.current.moved = true;
       clearLongPressTimer();
     }
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
     clearLongPressTimer();
+    touchStartPosRef.current = null;
     if (longPressTriggeredRef.current) {
-      // Prevent iOS Safari from synthesizing a click event on the newly mounted
-      // modal backdrop when the user lifts their finger after a long press
       if (e.cancelable) {
         e.preventDefault();
       }
@@ -101,7 +133,20 @@ export function ArticleCard({
   };
 
   const handleTouchCancel = () => {
+    const start = touchStartPosRef.current;
     clearLongPressTimer();
+    touchStartPosRef.current = null;
+
+    // On iOS Safari, WebKit's native press-and-hold detector can fire touchcancel
+    // around ~300-400ms on a stationary finger even when the page has not scrolled.
+    if (
+      start &&
+      !start.moved &&
+      Math.abs(window.scrollY - start.scrollY) <= 4 &&
+      Date.now() - start.startTime >= 250
+    ) {
+      triggerLongPress();
+    }
   };
 
   const handleContextMenu = (e: React.MouseEvent) => {
@@ -109,9 +154,7 @@ export function ArticleCard({
     if ((e.target as HTMLElement).closest('button, a')) return;
     if (window.matchMedia('(max-width: 767px)').matches) {
       e.preventDefault();
-      longPressTriggeredRef.current = true;
-      clearLongPressTimer();
-      onLongPress(article);
+      triggerLongPress();
     }
   };
 
@@ -161,7 +204,8 @@ export function ArticleCard({
                 <img
                   src={article.feedIconUrl}
                   alt=""
-                  className="w-3.5 h-3.5 rounded object-contain shrink-0"
+                  draggable={false}
+                  className="w-3.5 h-3.5 rounded object-contain shrink-0 pointer-events-none"
                   onError={(e) => {
                     (e.target as HTMLElement).style.display = 'none';
                   }}
@@ -293,48 +337,31 @@ export function ArticleCard({
               </button>
             </div>
 
-            <div className="flex items-center space-x-1">
-              {/* Mobile Actions Menu Trigger (also activated via long-press) */}
-              {onLongPress && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onLongPress(article);
-                  }}
-                  className="md:hidden p-1.5 text-ink-400 hover:text-ink-800 active:bg-paper-200/70 rounded-lg transition-colors"
-                  title="Article actions"
-                  aria-label="Article actions"
-                >
-                  <MoreHorizontal className="w-4 h-4" />
-                </button>
-              )}
-
-              {/* External Original Link */}
-              <a
-                href={article.articleUrl}
-                target="_blank"
-                rel="noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="p-1.5 text-ink-400 hover:text-ink-800 hover:bg-paper-200/70 rounded-lg transition-colors flex items-center space-x-1"
-                title="Open original article in new tab"
-              >
-                <span className="text-[11px] hidden sm:inline text-ink-500">Original</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-            </div>
+            {/* External Original Link */}
+            <a
+              href={article.articleUrl}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="p-1.5 text-ink-400 hover:text-ink-800 hover:bg-paper-200/70 rounded-lg transition-colors flex items-center space-x-1"
+              title="Open original article in new tab"
+            >
+              <span className="text-[11px] hidden sm:inline text-ink-500">Original</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
           </div>
         </div>
 
         {/* Thumbnail Image (Right Column) */}
         {article.imageUrl && !imageError && (
-          <div className="shrink-0 hidden xs:block sm:block">
+          <div className="shrink-0 hidden xs:block sm:block pointer-events-none">
             <img
               src={article.imageUrl}
               alt=""
               loading="lazy"
+              draggable={false}
               onError={() => setImageError(true)}
-              className="w-20 h-20 sm:w-28 sm:h-28 rounded-xl object-cover border border-paper-200/90 bg-paper-100 group-hover:border-paper-300 transition-colors"
+              className="w-20 h-20 sm:w-28 sm:h-28 rounded-xl object-cover border border-paper-200/90 bg-paper-100 group-hover:border-paper-300 transition-colors pointer-events-none"
             />
           </div>
         )}

@@ -57,7 +57,7 @@ export function AppLayout() {
         />
 
         {/* Main Article Stream Pane */}
-        <main className="flex-1 p-5 sm:p-8 pb-20 md:pb-8 max-w-4xl overflow-y-auto">
+        <main className="flex-1 p-5 sm:p-8 pb-20 md:pb-8 max-w-4xl min-w-0">
           <ArticleStream
             filter={currentFilter}
             feeds={feeds}
