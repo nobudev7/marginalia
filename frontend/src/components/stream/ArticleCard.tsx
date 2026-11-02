@@ -7,7 +7,8 @@ import {
   Rss, 
   Clock,
   BookOpen,
-  ArrowUpToLine
+  ArrowUpToLine,
+  MoreHorizontal
 } from 'lucide-react';
 import type { ArticleDto } from '../../types';
 import { formatRelativeTime, stripHtml, estimateReadingTime } from '../../utils/formatters';
@@ -73,7 +74,7 @@ export function ArticleCard({
         navigator.vibrate(15);
       }
       onLongPress(article);
-    }, 500);
+    }, 400);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
@@ -83,20 +84,34 @@ export function ArticleCard({
 
     const dx = touch.clientX - touchStartPosRef.current.x;
     const dy = touch.clientY - touchStartPosRef.current.y;
-    if (Math.hypot(dx, dy) > 10) {
+    if (Math.hypot(dx, dy) > 15) {
       clearLongPressTimer();
     }
   };
 
-  const handleTouchEnd = () => {
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    clearLongPressTimer();
+    if (longPressTriggeredRef.current) {
+      // Prevent iOS Safari from synthesizing a click event on the newly mounted
+      // modal backdrop when the user lifts their finger after a long press
+      if (e.cancelable) {
+        e.preventDefault();
+      }
+    }
+  };
+
+  const handleTouchCancel = () => {
     clearLongPressTimer();
   };
 
   const handleContextMenu = (e: React.MouseEvent) => {
     if (!onLongPress) return;
     if ((e.target as HTMLElement).closest('button, a')) return;
-    if (window.matchMedia('(max-width: 639px)').matches) {
+    if (window.matchMedia('(max-width: 767px)').matches) {
       e.preventDefault();
+      longPressTriggeredRef.current = true;
+      clearLongPressTimer();
+      onLongPress(article);
     }
   };
 
@@ -119,9 +134,9 @@ export function ArticleCard({
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
-      onTouchCancel={handleTouchEnd}
+      onTouchCancel={handleTouchCancel}
       onContextMenu={handleContextMenu}
-      className={`group relative p-4 sm:p-5 rounded-2xl border transition-all duration-200 cursor-pointer select-none sm:select-auto ${
+      className={`group relative p-4 sm:p-5 rounded-2xl border transition-all duration-200 cursor-pointer select-none sm:select-auto [-webkit-touch-callout:none] ${
         article.isRead
           ? 'bg-paper-50/70 border-paper-200 hover:border-paper-300 hover:bg-paper-50'
           : 'bg-paper-50 border-paper-300/90 shadow-2xs hover:shadow-xs hover:border-amberAccent-400/60'
@@ -278,18 +293,36 @@ export function ArticleCard({
               </button>
             </div>
 
-            {/* External Original Link */}
-            <a
-              href={article.articleUrl}
-              target="_blank"
-              rel="noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="p-1.5 text-ink-400 hover:text-ink-800 hover:bg-paper-200/70 rounded-lg transition-colors flex items-center space-x-1"
-              title="Open original article in new tab"
-            >
-              <span className="text-[11px] hidden sm:inline text-ink-500">Original</span>
-              <ExternalLink className="w-3.5 h-3.5" />
-            </a>
+            <div className="flex items-center space-x-1">
+              {/* Mobile Actions Menu Trigger (also activated via long-press) */}
+              {onLongPress && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onLongPress(article);
+                  }}
+                  className="md:hidden p-1.5 text-ink-400 hover:text-ink-800 active:bg-paper-200/70 rounded-lg transition-colors"
+                  title="Article actions"
+                  aria-label="Article actions"
+                >
+                  <MoreHorizontal className="w-4 h-4" />
+                </button>
+              )}
+
+              {/* External Original Link */}
+              <a
+                href={article.articleUrl}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="p-1.5 text-ink-400 hover:text-ink-800 hover:bg-paper-200/70 rounded-lg transition-colors flex items-center space-x-1"
+                title="Open original article in new tab"
+              >
+                <span className="text-[11px] hidden sm:inline text-ink-500">Original</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            </div>
           </div>
         </div>
 
