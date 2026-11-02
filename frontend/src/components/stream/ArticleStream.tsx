@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   Inbox, 
   BookOpen, 
@@ -74,6 +74,12 @@ export function ArticleStream({
 
   const [selectedArticle, setSelectedArticle] = useState<ArticleDto | null>(null);
   const [longPressArticle, setLongPressArticle] = useState<ArticleDto | null>(null);
+  const longPressOpenedAtRef = useRef<number>(0);
+
+  const handleOpenLongPressMenu = useCallback((article: ArticleDto) => {
+    longPressOpenedAtRef.current = Date.now();
+    setLongPressArticle(article);
+  }, []);
 
   // Close reading drawer and long-press menu when switching navigation filters/feeds
   useEffect(() => {
@@ -405,7 +411,7 @@ export function ArticleStream({
               onToggleSave={toggleSave}
               onMarkAboveAsRead={markAboveAsRead}
               onSelectArticle={handleSelectArticle}
-              onLongPress={setLongPressArticle}
+              onLongPress={handleOpenLongPressMenu}
             />
           ))}
 
@@ -449,8 +455,13 @@ export function ArticleStream({
       {/* Mobile Long-Press Context Menu */}
       {longPressArticle && (
         <div
-          className="sm:hidden fixed inset-0 z-50 flex items-end justify-center p-4 bg-ink-900/40 backdrop-blur-xs"
-          onClick={() => setLongPressArticle(null)}
+          className="md:hidden fixed inset-0 z-50 flex items-end justify-center p-4 pb-20 bg-ink-900/40 backdrop-blur-xs"
+          onClick={() => {
+            if (Date.now() - longPressOpenedAtRef.current < 350) {
+              return;
+            }
+            setLongPressArticle(null);
+          }}
         >
           <div
             className="w-full max-w-sm rounded-2xl bg-paper-50 border border-paper-300 shadow-xl overflow-hidden select-none"
