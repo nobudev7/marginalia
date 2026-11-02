@@ -12,7 +12,9 @@ import {
   ExternalLink,
   ChevronDown,
   Eye,
-  EyeOff
+  EyeOff,
+  ArrowUpToLine,
+  X
 } from 'lucide-react';
 import type { NavFilter, FeedDto, ArticleDto } from '../../types';
 import { useArticles } from '../../hooks/useArticles';
@@ -66,14 +68,17 @@ export function ArticleStream({
     refresh,
     toggleRead,
     toggleSave,
+    markAboveAsRead,
     markAllAsRead,
   } = useArticles({ filter, unreadOnly, onUnreadChanged });
 
   const [selectedArticle, setSelectedArticle] = useState<ArticleDto | null>(null);
+  const [longPressArticle, setLongPressArticle] = useState<ArticleDto | null>(null);
 
-  // Close reading drawer when switching navigation filters/feeds
+  // Close reading drawer and long-press menu when switching navigation filters/feeds
   useEffect(() => {
     setSelectedArticle(null);
+    setLongPressArticle(null);
   }, [filter.type, currentFeedId, currentCategoryId]);
 
   const handleSelectArticle = useCallback((article: ArticleDto) => {
@@ -172,6 +177,12 @@ export function ArticleStream({
   const headerInfo = getHeaderInfo();
   const HeaderIcon = headerInfo.icon;
   const unreadInStream = articles.filter((a) => !a.isRead).length;
+  const firstUnreadIndex = articles.findIndex((a) => !a.isRead);
+  const longPressIndex = longPressArticle
+    ? articles.findIndex((a) => a.id === longPressArticle.id)
+    : -1;
+  const longPressHasUnreadAbove =
+    firstUnreadIndex !== -1 && longPressIndex > firstUnreadIndex;
 
   return (
     <div className="w-full">
@@ -385,13 +396,16 @@ export function ArticleStream({
       {/* Populated Articles Stream */}
       {!loading && articles.length > 0 && (
         <div className="space-y-4">
-          {articles.map((article) => (
+          {articles.map((article, index) => (
             <ArticleCard
               key={article.id}
               article={article}
+              hasUnreadAbove={firstUnreadIndex !== -1 && firstUnreadIndex < index}
               onToggleRead={toggleRead}
               onToggleSave={toggleSave}
+              onMarkAboveAsRead={markAboveAsRead}
               onSelectArticle={handleSelectArticle}
+              onLongPress={setLongPressArticle}
             />
           ))}
 
@@ -428,6 +442,75 @@ export function ArticleStream({
             <p className="text-[11px] font-mono text-ink-400">
               Showing {articles.length} of {totalElements} articles
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Long-Press Context Menu */}
+      {longPressArticle && (
+        <div
+          className="sm:hidden fixed inset-0 z-50 flex items-end justify-center p-4 bg-ink-900/40 backdrop-blur-xs"
+          onClick={() => setLongPressArticle(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl bg-paper-50 border border-paper-300 shadow-xl overflow-hidden select-none"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-4 py-3 border-b border-paper-200 flex items-center justify-between gap-2 bg-paper-100/60">
+              <p className="font-serif text-xs font-semibold text-ink-800 truncate">
+                {longPressArticle.title}
+              </p>
+              <button
+                type="button"
+                onClick={() => setLongPressArticle(null)}
+                className="p-1 text-ink-400 hover:text-ink-800 rounded-lg shrink-0"
+                aria-label="Close menu"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-1.5 space-y-0.5">
+              <button
+                type="button"
+                disabled={!longPressHasUnreadAbove}
+                onClick={() => {
+                  const id = longPressArticle.id;
+                  setLongPressArticle(null);
+                  markAboveAsRead(id);
+                }}
+                className="w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-medium text-ink-800 active:bg-paper-200 disabled:opacity-40 disabled:pointer-events-none transition-colors text-left"
+              >
+                <ArrowUpToLine className="w-4 h-4 text-amberAccent-700 shrink-0" />
+                <span>Make above as read</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={loading || (headerInfo.unreadCount === 0 && unreadInStream === 0)}
+                onClick={() => {
+                  setLongPressArticle(null);
+                  markAllAsRead();
+                }}
+                className="w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-medium text-ink-800 active:bg-paper-200 disabled:opacity-40 disabled:pointer-events-none transition-colors text-left"
+              >
+                <CheckCheck className="w-4 h-4 text-emerald-700 shrink-0" />
+                <span>Mark all read</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => {
+                  setLongPressArticle(null);
+                  refresh();
+                }}
+                className="w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-medium text-ink-800 active:bg-paper-200 disabled:opacity-40 disabled:pointer-events-none transition-colors text-left"
+              >
+                <RotateCw className="w-4 h-4 text-ink-600 shrink-0" />
+                <span>Refresh</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
