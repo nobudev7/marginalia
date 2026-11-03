@@ -28,6 +28,7 @@ export interface FeedDto {
   iconUrl: string | null;
   categoryId: number | null;
   categoryName: string | null;
+  sortOrder?: number;
   lastFetchedAt: string | null;
   fetchErrorCount: number;
   lastErrorMessage: string | null;

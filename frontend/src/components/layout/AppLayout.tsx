@@ -10,7 +10,7 @@ import { useFeeds } from '../../hooks/useFeeds';
 import type { NavFilter, ArticleDto } from '../../types';
 
 export function AppLayout() {
-  const { categories, addCategory, refreshCategories } = useCategories();
+  const { categories, addCategory, refreshCategories, reorderCategories } = useCategories();
   const { 
     feeds, 
     totalUnread, 
@@ -18,6 +18,7 @@ export function AppLayout() {
     addFeed, 
     deleteFeed, 
     refreshFeeds, 
+    reorderFeeds,
   } = useFeeds();
 
   const [currentFilter, setCurrentFilter] = useState<NavFilter>({ type: 'all' });
@@ -52,6 +53,8 @@ export function AppLayout() {
           onOpenSettings={() => setIsSettingsModalOpen(true)}
           onDeleteFeed={deleteFeed}
           onRefreshFeeds={refreshFeeds}
+          onReorderCategories={reorderCategories}
+          onReorderFeeds={reorderFeeds}
           isMobileOpen={isMobileNavOpen}
           onCloseMobile={() => setIsMobileNavOpen(false)}
         />

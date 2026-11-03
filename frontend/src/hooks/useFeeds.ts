@@ -85,6 +85,41 @@ export function useFeeds() {
     await fetchFeedsAndCounts();
   }, [fetchFeedsAndCounts]);
 
+  const reorderFeeds = useCallback(async (
+    categoryId: number | null,
+    orderedFeedIds: number[],
+    categoryName: string | null = null
+  ) => {
+    setFeeds((prev) => {
+      const orderMap = new Map(orderedFeedIds.map((id, idx) => [id, idx]));
+      const updated = prev.map((f) => {
+        const newOrder = orderMap.get(f.id);
+        if (newOrder !== undefined) {
+          return {
+            ...f,
+            categoryId,
+            categoryName: categoryId === null ? null : (categoryName ?? f.categoryName),
+            sortOrder: newOrder,
+          };
+        }
+        return f;
+      });
+      return [...updated].sort(
+        (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.title.localeCompare(b.title)
+      );
+    });
+
+    try {
+      await apiFetch<FeedDto[]>('/api/feeds/reorder', {
+        method: 'PUT',
+        body: JSON.stringify({ categoryId, feedIds: orderedFeedIds }),
+      });
+    } catch (err) {
+      console.error('Failed to reorder feeds:', err);
+      await fetchFeedsAndCounts();
+    }
+  }, [fetchFeedsAndCounts]);
+
   useEffect(() => {
     fetchFeedsAndCounts();
   }, [fetchFeedsAndCounts]);
@@ -99,5 +134,6 @@ export function useFeeds() {
     addFeed,
     deleteFeed,
     crawlFeed,
+    reorderFeeds,
   };
 }
