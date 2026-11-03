@@ -14,11 +14,17 @@ import {
   Search,
   HardDriveDownload,
   FolderSync,
+  Type,
 } from 'lucide-react';
 import { exportOpml, importOpml } from '../../api/opml';
 import { useWhitelist } from '../../hooks/useWhitelist';
 import { useAuth } from '../../hooks/useAuth';
 import { cn } from '../../utils/cn';
+import {
+  type FontPreference,
+  getFontPreference,
+  setFontPreference,
+} from '../../utils/fontPreference';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -26,11 +32,17 @@ interface SettingsModalProps {
   onFeedsChanged: () => Promise<void>;
 }
 
-type TabType = 'opml' | 'whitelist';
+type TabType = 'appearance' | 'opml' | 'whitelist';
 
 export function SettingsModal({ isOpen, onClose, onFeedsChanged }: SettingsModalProps) {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<TabType>('opml');
+  const [activeTab, setActiveTab] = useState<TabType>('appearance');
+  const [fontFamily, setFontFamily] = useState<FontPreference>(() => getFontPreference());
+
+  const handleSelectFont = (pref: FontPreference) => {
+    setFontFamily(pref);
+    setFontPreference(pref);
+  };
 
   // OPML state
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -243,12 +255,26 @@ export function SettingsModal({ isOpen, onClose, onFeedsChanged }: SettingsModal
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex border-b border-paper-200 px-6 bg-paper-100/60 shrink-0">
+        <div className="flex border-b border-paper-200 px-6 bg-paper-100/60 shrink-0 overflow-x-auto">
+          <button
+            type="button"
+            onClick={() => setActiveTab('appearance')}
+            className={cn(
+              'flex items-center space-x-2 py-3 px-3 text-xs font-semibold border-b-2 transition-colors -mb-px whitespace-nowrap',
+              activeTab === 'appearance'
+                ? 'border-amberAccent-700 text-amberAccent-900'
+                : 'border-transparent text-ink-500 hover:text-ink-800'
+            )}
+          >
+            <Type className="w-3.5 h-3.5" />
+            <span>Appearance</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setActiveTab('opml')}
             className={cn(
-              'flex items-center space-x-2 py-3 px-3 text-xs font-semibold border-b-2 transition-colors -mb-px',
+              'flex items-center space-x-2 py-3 px-3 text-xs font-semibold border-b-2 transition-colors -mb-px whitespace-nowrap',
               activeTab === 'opml'
                 ? 'border-amberAccent-700 text-amberAccent-900'
                 : 'border-transparent text-ink-500 hover:text-ink-800'
@@ -283,6 +309,89 @@ export function SettingsModal({ isOpen, onClose, onFeedsChanged }: SettingsModal
 
         {/* Modal Scrollable Body */}
         <div className="p-6 overflow-y-auto space-y-6 flex-1">
+          {/* TAB 0: Appearance */}
+          {activeTab === 'appearance' && (
+            <div className="space-y-6">
+              <div className="p-4 rounded-xl border border-paper-300 bg-paper-100/40 space-y-4">
+                <div>
+                  <h4 className="font-serif text-sm font-bold text-ink-900 flex items-center space-x-2">
+                    <Type className="w-4 h-4 text-amberAccent-700" />
+                    <span>Reading Font</span>
+                  </h4>
+                  <p className="text-xs text-ink-600 mt-1 leading-relaxed">
+                    Choose the typeface used for article titles, headings, and the reading drawer.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => handleSelectFont('sans')}
+                    className={cn(
+                      'p-3.5 rounded-xl border text-left transition-all cursor-pointer',
+                      fontFamily === 'sans'
+                        ? 'border-amberAccent-700 bg-amberAccent-50/70 ring-1 ring-amberAccent-700/30'
+                        : 'border-paper-300 bg-paper-50 hover:bg-paper-200/50'
+                    )}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-bold text-ink-900 font-sans">
+                        Sans-serif (Default)
+                      </span>
+                      {fontFamily === 'sans' && (
+                        <CheckCircle2 className="w-4 h-4 text-amberAccent-700" />
+                      )}
+                    </div>
+                    <p
+                      className="text-xs text-ink-600"
+                      style={{
+                        fontFamily:
+                          "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+                      }}
+                    >
+                      Clean, crisp geometric sans-serif (Inter) for scanning and reading.
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSelectFont('serif')}
+                    className={cn(
+                      'p-3.5 rounded-xl border text-left transition-all cursor-pointer',
+                      fontFamily === 'serif'
+                        ? 'border-amberAccent-700 bg-amberAccent-50/70 ring-1 ring-amberAccent-700/30'
+                        : 'border-paper-300 bg-paper-50 hover:bg-paper-200/50'
+                    )}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span
+                        className="text-xs font-bold text-ink-900"
+                        style={{
+                          fontFamily:
+                            "'Newsreader', Charter, 'Sitka Text', Cambria, Georgia, serif",
+                        }}
+                      >
+                        Serif
+                      </span>
+                      {fontFamily === 'serif' && (
+                        <CheckCircle2 className="w-4 h-4 text-amberAccent-700" />
+                      )}
+                    </div>
+                    <p
+                      className="text-xs text-ink-600"
+                      style={{
+                        fontFamily:
+                          "'Newsreader', Charter, 'Sitka Text', Cambria, Georgia, serif",
+                      }}
+                    >
+                      Bookish editorial serif (Newsreader) for long-form dispatches.
+                    </p>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* TAB 1: OPML Subscriptions */}
           {activeTab === 'opml' && (
             <div className="space-y-6">

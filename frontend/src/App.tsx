@@ -3,6 +3,9 @@ import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './hooks/useAuth';
 import { LoginPage } from './components/auth/LoginPage';
 import { AppLayout } from './components/layout/AppLayout';
+import { initFontPreference } from './utils/fontPreference';
+
+initFontPreference();
 
 function AppContent() {
   const { user, loading } = useAuth();
