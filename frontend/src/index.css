@@ -15,8 +15,8 @@
     margin: 0;
     padding: 0;
     min-height: 100%;
-    background-color: #FAF8F5;
-    color: #1C1917;
+    background-color: #F0F6FC;
+    color: #0F172A;
   }
 }
 
@@ -31,12 +31,12 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #D5C9BD;
+  background: #B0CBE6;
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #B8A695;
+  background: #89AED4;
 }
 
 /* Mobile Safe Area Inset Utilities */

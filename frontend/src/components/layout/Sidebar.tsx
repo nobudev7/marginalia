@@ -737,7 +737,7 @@ export function Sidebar({
           )}
         >
           <div className="flex items-center space-x-2.5">
-            <Bookmark className="w-4 h-4 text-amber-600" />
+            <Bookmark className="w-4 h-4 text-amberAccent-600" />
             <span>Saved / Bookmarks</span>
           </div>
         </button>
