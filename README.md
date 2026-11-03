@@ -1,5 +1,12 @@
 # Marginalia
 
+[![Release](https://img.shields.io/github/v/release/nobudev7/marginalia?include_prereleases&label=release&color=255899)](https://github.com/nobudev7/marginalia/releases)
+[![CI](https://github.com/nobudev7/marginalia/actions/workflows/ci.yml/badge.svg)](https://github.com/nobudev7/marginalia/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Java 25](https://img.shields.io/badge/Java-25-ED8B00?logo=openjdk&logoColor=white)](https://openjdk.org/)
+[![Spring Boot 4.1](https://img.shields.io/badge/Spring_Boot-4.1-6DB33F?logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
+[![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev/)
+
 A private, self-hosted RSS reader web application designed for seamless, distraction-free reading across desktop and mobile devices.
 
 ## Goal & Direction
@@ -25,18 +32,11 @@ Marginalia is designed to provide a clean, personal reading experience:
 * **Deployment**: AWS Lightsail Linux instance running Docker Compose + Caddy (automated Let's Encrypt HTTPS).
 
 ### Key Features
-1. **Reader Interface**: Collapsible sidebar with categories, live unread badges, stream list/card view, and reading drawer.
+1. **Reader Interface**: Collapsible sidebar with drag-and-drop editable categories and feeds, live unread badges, stream list/card view, and reading drawer.
 2. **Feed Ingestion**: Periodic background crawler using Java 25 Virtual Threads and conditional HTTP (`ETag` / `If-Modified-Since`) to minimize bandwidth.
 3. **OPML Support**: Bulk import and export of feeds and category folders.
 4. **Security & Session**: OAuth2 single-user login restricted to an email whitelist, with persistent 60–90 day sessions.
-5. **PWA & Mobile**: Offline-capable service worker, app manifest, and full-screen mobile app shell.
-
-### Implementation Roadmap
-* [x] **Phase 1: Project Scaffolding & Database Setup** — Backend foundation, Flyway schema, JPA entities/repositories, local Docker compose.
-* [x] **Phase 2: Feed Ingestion Engine & OPML** — ROME crawler, conditional HTTP fetching, OPML import/export, and background scheduler.
-* [x] **Phase 3: Security & Session Persistence** — OAuth2 client (Google & GitHub), database-backed email whitelist, persistent 90-day JDBC sessions.
-* [x] **Phase 4: Frontend Development (React PWA)** — Responsive stream layout, reading drawer, unread counters, keyboard shortcuts, and installable PWA manifest.
-* [x] **Phase 5: Deployment & AWS Lightsail Automation** — Multi-stage containerization, Caddy automated TLS reverse proxy, Compose orchestration, automated backups, and Terraform IaC.
+5. **PWA & Mobile**: Offline-capable service worker, app manifest, mobile long-press context menu, and full-screen mobile app shell.
 
 ---
 
@@ -108,7 +108,14 @@ For complete step-by-step instructions, Route 53 subdomain configuration, and di
 * [Local Development Guide](docs/local-development-guide.md) — Activating the `dev` profile, safe defaults, and testing dev-login.
 * [Email Whitelist Administration Guide](docs/whitelist-admin-guide.md) — Managing access, safety measures, and admin REST endpoints.
 * [Future Expansion to Public Service (Path B)](docs/future-expansion-public-service.md) — Technical migration plan for global feed deduplication and multi-user scaling.
+* [Changelog](CHANGELOG.md) — Release history and commit summaries.
 * [Development Log](docs/dev-log.md) — Detailed changelog, architectural decisions, and verification records.
+
+---
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
 
 
 
