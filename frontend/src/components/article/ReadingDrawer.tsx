@@ -313,13 +313,13 @@ export function ReadingDrawer({
               <ExternalLink className="w-4 h-4" />
             </button>
 
-            <div className="h-4 w-px bg-paper-300 mx-0.5" />
+            <div className="hidden md:block h-4 w-px bg-paper-300 mx-0.5" />
 
-            {/* Keyboard Shortcuts Help Toggle */}
+            {/* Keyboard Shortcuts Help Toggle (hidden on mobile web / PWA) */}
             <button
               type="button"
               onClick={() => setShowShortcutsHelp((prev) => !prev)}
-              className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+              className={`hidden md:inline-flex p-1.5 rounded-lg transition-colors cursor-pointer ${
                 showShortcutsHelp
                   ? 'bg-paper-300 text-ink-900'
                   : 'text-ink-400 hover:text-ink-800 hover:bg-paper-200'
@@ -331,9 +331,9 @@ export function ReadingDrawer({
           </div>
         </header>
 
-        {/* Keyboard Shortcuts Guide Banner (Collapsible) */}
+        {/* Keyboard Shortcuts Guide Banner (Collapsible, desktop only) */}
         {showShortcutsHelp && (
-          <div className="bg-paper-200/90 border-b border-paper-300 px-4 py-2.5 text-xs text-ink-700 flex items-center justify-between gap-2 animate-in fade-in duration-150">
+          <div className="hidden md:flex bg-paper-200/90 border-b border-paper-300 px-4 py-2.5 text-xs text-ink-700 items-center justify-between gap-2 animate-in fade-in duration-150">
             <div className="flex items-center space-x-3 flex-wrap gap-y-1">
               <span className="font-semibold text-ink-900">Keyboard shortcuts:</span>
               <span className="inline-flex items-center space-x-1">
@@ -452,8 +452,8 @@ export function ReadingDrawer({
               </a>
             </div>
 
-            {/* Bottom Keyboard Shortcut Hint */}
-            <div className="mt-6 text-center text-[11px] font-mono text-ink-400">
+            {/* Bottom Keyboard Shortcut Hint (hidden on mobile web / PWA) */}
+            <div className="hidden md:block mt-6 text-center text-[11px] font-mono text-ink-400">
               Press <kbd className="px-1 py-0.5 rounded bg-paper-200 text-ink-600">j</kbd> for next article,{' '}
               <kbd className="px-1 py-0.5 rounded bg-paper-200 text-ink-600">k</kbd> for previous,{' '}
               <kbd className="px-1 py-0.5 rounded bg-paper-200 text-ink-600">Esc</kbd> to close

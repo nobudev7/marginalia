@@ -10,7 +10,7 @@ import {
   ArrowUpToLine
 } from 'lucide-react';
 import type { ArticleDto } from '../../types';
-import { formatRelativeTime, stripHtml, estimateReadingTime } from '../../utils/formatters';
+import { formatRelativeTime, estimateReadingTime } from '../../utils/formatters';
 
 interface ArticleCardProps {
   article: ArticleDto;
@@ -42,7 +42,6 @@ export function ArticleCard({
   } | null>(null);
   const longPressTriggeredRef = useRef(false);
 
-  const snippet = stripHtml(article.summary || article.content);
   const readingTime = estimateReadingTime(article.content || article.summary);
   const timeAgo = formatRelativeTime(article.publishedAt);
 
@@ -254,17 +253,6 @@ export function ArticleCard({
             {article.title}
           </h3>
 
-          {/* Summary Snippet */}
-          {snippet && (
-            <p
-              className={`font-sans text-xs sm:text-sm leading-relaxed mt-2 line-clamp-2 ${
-                article.isRead ? 'text-ink-400' : 'text-ink-600'
-              }`}
-            >
-              {snippet}
-            </p>
-          )}
-
           {/* Card Action Controls Footer */}
           <div className="flex items-center justify-between mt-3.5 pt-3 border-t border-paper-200/70 text-xs">
             <div className="flex items-center space-x-1 sm:space-x-2">
@@ -354,7 +342,7 @@ export function ArticleCard({
 
         {/* Thumbnail Image (Right Column) */}
         {article.imageUrl && !imageError && (
-          <div className="shrink-0 hidden xs:block sm:block pointer-events-none">
+          <div className="shrink-0 pointer-events-none">
             <img
               src={article.imageUrl}
               alt=""

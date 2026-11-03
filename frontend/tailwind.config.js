@@ -37,7 +37,7 @@ export default {
         },
       },
       fontFamily: {
-        serif: ['Newsreader', 'Charter', 'Sitka Text', 'Cambria', 'Georgia', 'serif'],
+        serif: ['var(--font-editorial)'],
         sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
       },
     },
