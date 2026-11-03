@@ -547,12 +547,12 @@ export function SettingsModal({ isOpen, onClose, onFeedsChanged }: SettingsModal
             <div className="space-y-5">
               {!isAdmin ? (
                 /* Non-admin access warning */
-                <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 space-y-1.5">
-                  <div className="flex items-center space-x-2 font-bold text-amber-950">
-                    <AlertCircle className="w-4 h-4 text-amber-700" />
+                <div className="p-4 bg-amberAccent-50 border border-amberAccent-200 rounded-xl text-xs text-amberAccent-900 space-y-1.5">
+                  <div className="flex items-center space-x-2 font-bold text-ink-950">
+                    <AlertCircle className="w-4 h-4 text-amberAccent-700" />
                     <span>Administrative Privileges Required</span>
                   </div>
-                  <p className="leading-relaxed text-amber-800">
+                  <p className="leading-relaxed text-amberAccent-800">
                     Managing the instance email whitelist is restricted to configured administrators. Your account (
                     <span className="font-mono font-semibold">{user?.email}</span>) does not currently possess admin rights.
                   </p>

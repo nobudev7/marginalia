@@ -277,14 +277,14 @@ export function ReadingDrawer({
               onClick={handleToggleSave}
               className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
                 article.isSaved
-                  ? 'text-amber-800 bg-amber-100 hover:bg-amber-200'
-                  : 'text-ink-500 hover:text-amber-700 hover:bg-paper-200'
+                  ? 'text-amberAccent-800 bg-amberAccent-100 hover:bg-amberAccent-200'
+                  : 'text-ink-500 hover:text-amberAccent-700 hover:bg-paper-200'
               }`}
               title={article.isSaved ? 'Remove bookmark (s)' : 'Save bookmark (s)'}
             >
               <Bookmark
                 className={`w-4 h-4 ${
-                  article.isSaved ? 'fill-amber-600 text-amber-700' : ''
+                  article.isSaved ? 'fill-amberAccent-600 text-amberAccent-700' : ''
                 }`}
               />
             </button>
@@ -425,7 +425,7 @@ export function ReadingDrawer({
 
           {/* Sanitized Article Body Typography */}
           <div
-            className="prose prose-stone prose-lg max-w-none font-serif text-ink-900 leading-relaxed prose-headings:font-serif prose-headings:font-bold prose-headings:text-ink-950 prose-a:text-amberAccent-700 hover:prose-a:text-amberAccent-900 prose-a:underline prose-img:rounded-xl prose-img:border prose-img:border-paper-300 prose-img:mx-auto prose-blockquote:border-l-4 prose-blockquote:border-amberAccent-600 prose-blockquote:font-serif prose-blockquote:italic prose-code:font-mono prose-code:bg-paper-200 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded"
+            className="prose prose-slate prose-lg max-w-none font-serif text-ink-900 leading-relaxed prose-headings:font-serif prose-headings:font-bold prose-headings:text-ink-950 prose-a:text-amberAccent-700 hover:prose-a:text-amberAccent-900 prose-a:underline prose-img:rounded-xl prose-img:border prose-img:border-paper-300 prose-img:mx-auto prose-blockquote:border-l-4 prose-blockquote:border-amberAccent-600 prose-blockquote:font-serif prose-blockquote:italic prose-code:font-mono prose-code:bg-paper-200 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded"
             dangerouslySetInnerHTML={{ __html: sanitizedContent }}
           />
 

@@ -309,14 +309,14 @@ export function ArticleCard({
                 }}
                 className={`px-2.5 py-1 rounded-lg text-xs font-medium flex items-center space-x-1.5 transition-colors ${
                   article.isSaved
-                    ? 'text-amber-800 bg-amber-100 hover:bg-amber-200'
-                    : 'text-ink-500 hover:text-amber-700 hover:bg-paper-200/60'
+                    ? 'text-amberAccent-800 bg-amberAccent-100 hover:bg-amberAccent-200'
+                    : 'text-ink-500 hover:text-amberAccent-700 hover:bg-paper-200/60'
                 }`}
                 title={article.isSaved ? 'Remove bookmark' : 'Save for later'}
               >
                 <Bookmark
                   className={`w-3.5 h-3.5 ${
-                    article.isSaved ? 'fill-amber-600 text-amber-700' : 'text-ink-400'
+                    article.isSaved ? 'fill-amberAccent-600 text-amberAccent-700' : 'text-ink-400'
                   }`}
                 />
                 <span className="hidden sm:inline">
