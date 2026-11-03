@@ -8,7 +8,11 @@ import com.nobudev.marginalia.repository.CategoryRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 @Service
 @Transactional(readOnly = true)
@@ -33,13 +37,51 @@ public class CategoryService {
                     throw new IllegalArgumentException("Category already exists: " + request.name());
                 });
 
+        int nextSortOrder = request.sortOrder() != null
+                ? request.sortOrder()
+                : categoryRepository.findByUserIdOrderBySortOrderAscNameAsc(user.getId()).stream()
+                        .mapToInt(Category::getSortOrder)
+                        .max()
+                        .orElse(-1) + 1;
+
         Category category = new Category(
                 user,
                 request.name(),
-                request.sortOrder() != null ? request.sortOrder() : 0
+                nextSortOrder
         );
         category = categoryRepository.save(category);
         return CategoryResponse.from(category);
+    }
+
+    @Transactional
+    public List<CategoryResponse> reorderCategories(List<Long> categoryIds, Long userId) {
+        List<Category> userCategories = categoryRepository.findByUserIdOrderBySortOrderAscNameAsc(userId);
+        Map<Long, Category> byId = new HashMap<>();
+        for (Category c : userCategories) {
+            byId.put(c.getId(), c);
+        }
+
+        for (Long id : categoryIds) {
+            if (!byId.containsKey(id)) {
+                throw new IllegalArgumentException("Category not found: " + id);
+            }
+        }
+
+        int order = 0;
+        Set<Long> seen = new HashSet<>();
+        for (Long id : categoryIds) {
+            if (seen.add(id)) {
+                byId.get(id).setSortOrder(order++);
+            }
+        }
+        for (Category c : userCategories) {
+            if (!seen.contains(c.getId())) {
+                c.setSortOrder(order++);
+            }
+        }
+
+        categoryRepository.saveAll(userCategories);
+        return getCategoriesByUser(userId);
     }
 
     @Transactional

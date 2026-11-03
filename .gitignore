@@ -53,6 +53,7 @@ mysql_data/
 .data/
 backups/
 *.sql
+!backend/src/main/resources/db/migration/*.sql
 *.sql.gz
 
 # Secrets & Local Overrides

@@ -1,6 +1,7 @@
 package com.nobudev.marginalia.controller;
 
 import com.nobudev.marginalia.dto.CrawlResult;
+import com.nobudev.marginalia.dto.FeedReorderRequest;
 import com.nobudev.marginalia.dto.FeedRequest;
 import com.nobudev.marginalia.dto.FeedResponse;
 import com.nobudev.marginalia.entity.User;
@@ -47,6 +48,12 @@ public class FeedController {
         User user = userService.getCurrentUser();
         FeedResponse response = feedService.addFeed(request, user);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PutMapping("/reorder")
+    public List<FeedResponse> reorderFeeds(@Valid @RequestBody FeedReorderRequest request) {
+        User user = userService.getCurrentUser();
+        return feedService.reorderFeeds(request.categoryId(), request.feedIds(), user.getId());
     }
 
     @PutMapping("/{id}")

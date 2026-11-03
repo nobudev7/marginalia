@@ -10,7 +10,13 @@ import com.nobudev.marginalia.repository.FeedRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 
 import com.nobudev.marginalia.util.UrlSafetyValidator;
 
@@ -28,7 +34,7 @@ public class FeedService {
     }
 
     public List<FeedResponse> getFeedsByUser(Long userId) {
-        return feedRepository.findByUserIdOrderByTitleAsc(userId).stream()
+        return feedRepository.findByUserIdOrderBySortOrderAscTitleAsc(userId).stream()
                 .map(FeedResponse::from)
                 .toList();
     }
@@ -60,6 +66,13 @@ public class FeedService {
                             "Category not found: " + request.categoryId()));
         }
 
+        Long targetCatId = category != null ? category.getId() : null;
+        int nextSortOrder = feedRepository.findByUserIdOrderBySortOrderAscTitleAsc(user.getId()).stream()
+                .filter(f -> Objects.equals(f.getCategory() != null ? f.getCategory().getId() : null, targetCatId))
+                .mapToInt(Feed::getSortOrder)
+                .max()
+                .orElse(-1) + 1;
+
         Feed feed = new Feed(
                 user,
                 category,
@@ -68,7 +81,44 @@ public class FeedService {
                 request.title() != null ? request.title() : request.feedUrl(),
                 null
         );
+        feed.setSortOrder(nextSortOrder);
         return FeedResponse.from(feedRepository.save(feed));
+    }
+
+    @Transactional
+    public List<FeedResponse> reorderFeeds(Long categoryId, List<Long> feedIds, Long userId) {
+        Category targetCategory = null;
+        if (categoryId != null) {
+            targetCategory = categoryRepository.findByIdAndUserId(categoryId, userId)
+                    .orElseThrow(() -> new IllegalArgumentException("Category not found: " + categoryId));
+        }
+
+        List<Feed> userFeeds = feedRepository.findByUserIdOrderBySortOrderAscTitleAsc(userId);
+        Map<Long, Feed> byId = new HashMap<>();
+        for (Feed f : userFeeds) {
+            byId.put(f.getId(), f);
+        }
+
+        for (Long id : feedIds) {
+            if (!byId.containsKey(id)) {
+                throw new IllegalArgumentException("Feed not found: " + id);
+            }
+        }
+
+        int order = 0;
+        Set<Long> seen = new HashSet<>();
+        List<Feed> updated = new ArrayList<>();
+        for (Long id : feedIds) {
+            if (seen.add(id)) {
+                Feed feed = byId.get(id);
+                feed.setCategory(targetCategory);
+                feed.setSortOrder(order++);
+                updated.add(feed);
+            }
+        }
+
+        feedRepository.saveAll(updated);
+        return getFeedsByUser(userId);
     }
 
     @Transactional

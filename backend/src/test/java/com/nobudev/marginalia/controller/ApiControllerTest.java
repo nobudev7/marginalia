@@ -140,6 +140,21 @@ class ApiControllerTest {
         assertThat(categoryRepository.findById(testCategory.getId())).isEmpty();
     }
 
+    @Test
+    void testReorderCategories() {
+        Category cat2 = categoryRepository.save(new Category(testUser, "Alpha", 0));
+        Category cat3 = categoryRepository.save(new Category(testUser, "Beta", 0));
+
+        List<CategoryResponse> reordered = categoryController.reorderCategories(
+                new CategoryReorderRequest(List.of(cat3.getId(), testCategory.getId(), cat2.getId()))
+        );
+
+        assertThat(reordered).extracting(CategoryResponse::name)
+                .containsExactly("Beta", "News", "Alpha");
+        assertThat(reordered).extracting(CategoryResponse::sortOrder)
+                .containsExactly(0, 1, 2);
+    }
+
     // --- Feed Controller ---
 
     @Test
@@ -177,6 +192,24 @@ class ApiControllerTest {
     void testRefreshFeed() {
         CrawlResult result = feedController.refreshFeed(testFeed.getId());
         assertThat(result.isSuccess()).isTrue();
+    }
+
+    @Test
+    void testReorderFeedsAndMoveAcrossFolders() {
+        Category otherCat = categoryRepository.save(new Category(testUser, "Design", 2));
+        Feed feed2 = feedRepository.save(new Feed(testUser, null, "https://a-site.com/rss", "https://a-site.com", "A Site", null));
+
+        // Move both feed2 and testFeed into otherCat with feed2 first, testFeed second
+        List<FeedResponse> reordered = feedController.reorderFeeds(
+                new FeedReorderRequest(otherCat.getId(), List.of(feed2.getId(), testFeed.getId()))
+        );
+
+        assertThat(reordered).extracting(FeedResponse::title)
+                .containsExactly("A Site", "Example News");
+        assertThat(reordered).extracting(FeedResponse::categoryId)
+                .containsOnly(otherCat.getId());
+        assertThat(reordered).extracting(FeedResponse::sortOrder)
+                .containsExactly(0, 1);
     }
 
     // --- Article Controller ---

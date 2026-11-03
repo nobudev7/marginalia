@@ -22,6 +22,9 @@ public interface FeedRepository extends JpaRepository<Feed, Long> {
     @EntityGraph(attributePaths = {"category"})
     List<Feed> findByUserIdOrderByTitleAsc(Long userId);
 
+    @EntityGraph(attributePaths = {"category"})
+    List<Feed> findByUserIdOrderBySortOrderAscTitleAsc(Long userId);
+
     List<Feed> findByUserId(Long userId);
 
     List<Feed> findByUserIdAndCategoryIdOrderByTitleAsc(Long userId, Long categoryId);

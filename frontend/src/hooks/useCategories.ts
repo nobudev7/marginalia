@@ -37,6 +37,34 @@ export function useCategories() {
     setCategories((prev) => prev.filter((c) => c.id !== id));
   }, []);
 
+  const reorderCategories = useCallback(async (orderedIds: number[]) => {
+    setCategories((prev) => {
+      const byId = new Map(prev.map((c) => [c.id, c]));
+      const next: CategoryDto[] = [];
+      orderedIds.forEach((id, idx) => {
+        const cat = byId.get(id);
+        if (cat) {
+          next.push({ ...cat, sortOrder: idx });
+          byId.delete(id);
+        }
+      });
+      byId.forEach((cat) => {
+        next.push({ ...cat, sortOrder: next.length });
+      });
+      return next;
+    });
+
+    try {
+      await apiFetch<CategoryDto[]>('/api/categories/reorder', {
+        method: 'PUT',
+        body: JSON.stringify({ categoryIds: orderedIds }),
+      });
+    } catch (err) {
+      console.error('Failed to reorder categories:', err);
+      await fetchCategories();
+    }
+  }, [fetchCategories]);
+
   useEffect(() => {
     fetchCategories();
   }, [fetchCategories]);
@@ -48,5 +76,6 @@ export function useCategories() {
     refreshCategories: fetchCategories,
     addCategory,
     deleteCategory,
+    reorderCategories,
   };
 }

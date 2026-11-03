@@ -98,6 +98,20 @@ class FeedAndCategoryOwnershipTest {
     }
 
     @Test
+    void userACannotReorderCategoriesOfUserB() {
+        assertThatThrownBy(() -> categoryService.reorderCategories( java.util.List.of(categoryB.getId()), userA.getId()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Category not found");
+    }
+
+    @Test
+    void userACannotReorderFeedsOfUserB() {
+        assertThatThrownBy(() -> feedService.reorderFeeds(null, java.util.List.of(feedB.getId()), userA.getId()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Feed not found");
+    }
+
+    @Test
     void userBCanAccessOwnFeedAndCategory() {
         FeedResponse feed = feedService.getFeed(feedB.getId(), userB.getId());
         assertThat(feed).isNotNull();

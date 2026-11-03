@@ -1,5 +1,6 @@
 package com.nobudev.marginalia.controller;
 
+import com.nobudev.marginalia.dto.CategoryReorderRequest;
 import com.nobudev.marginalia.dto.CategoryRequest;
 import com.nobudev.marginalia.dto.CategoryResponse;
 import com.nobudev.marginalia.entity.User;
@@ -35,6 +36,12 @@ public class CategoryController {
         User user = userService.getCurrentUser();
         CategoryResponse response = categoryService.createCategory(request, user);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PutMapping("/reorder")
+    public List<CategoryResponse> reorderCategories(@Valid @RequestBody CategoryReorderRequest request) {
+        User user = userService.getCurrentUser();
+        return categoryService.reorderCategories(request.categoryIds(), user.getId());
     }
 
     @PutMapping("/{id}")
