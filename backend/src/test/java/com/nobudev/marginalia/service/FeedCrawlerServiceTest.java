@@ -425,4 +425,74 @@ class FeedCrawlerServiceTest {
 
         customMockServer.verify();
     }
+
+    @Test
+    void testCrawlRssWithNestedAnchorTitlesAndAutoDetectFeedTitle() {
+        String fiPlanningXml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <rss xmlns:dc="http://purl.org/dc/elements/1.1/" version="2.0" xml:base="https://www.fiplanning.com/">
+              <channel>
+                <title>FI Planning - アメリカ生活とパーソナルファイナンスの情報シェアサイト</title>
+                <link>https://www.fiplanning.com/</link>
+                <description/>
+                <language>ja</language>
+                <item>
+                  <title><a href="/forum/20261028-%E7%AC%AC%E4%B8%89%E5%9B%BD" hreflang="ja">第三国での銀行口座について</a></title>
+                  <link>https://www.fiplanning.com/%3Ca%20href%3D%22/forum/20261028-%25E7%25AC%25AC%25E4%25B8%2589%25E5%259B%25BD%22%20hreflang%3D%22ja%22%3E%E7%B6%9A%E3%81%8D%E3%82%92%E8%AA%AD%E3%82%80%3C/a%3E</link>
+                  <description>&lt;p&gt;こんにちは。&lt;/p&gt;</description>
+                  <pubDate>2026-10-28T08:14:38-0400</pubDate>
+                  <dc:creator>
+                    <span class="username" style="color: #800000 "> ころん（ゲスト）</span>
+                  </dc:creator>
+                  <guid isPermaLink="true">https://www.fiplanning.com/%3Ca%20href%3D%22/forum/20261028-%25E7%25AC%25AC%25E4%25B8%2589%25E5%259B%25BD%22</guid>
+                </item>
+                <item>
+                  <title><a href="/forum/20260611-wealth-plan" hreflang="ja">wealth plan について</a></title>
+                  <link>https://www.fiplanning.com/%3Ca%20href%3D%22/forum/20260611-wealth-plan%22%20hreflang%3D%22ja%22%3E%E7%B6%9A%E3%81%8D%E3%82%92%E8%AA%AD%E3%82%80%3C/a%3E</link>
+                  <description>&lt;p&gt;相談です。&lt;/p&gt;</description>
+                  <pubDate>2026-06-11T10:38:08-0400</pubDate>
+                  <dc:creator>
+                    <span class="username"> テスト（ゲスト）</span>
+                  </dc:creator>
+                  <guid isPermaLink="true">https://www.fiplanning.com/%3Ca%20href%3D%22/forum/20260611-wealth-plan%22</guid>
+                </item>
+              </channel>
+            </rss>
+            """;
+
+        // Feed created without custom title (defaults to feedUrl)
+        String feedUrl = "https://www.fiplanning.com/rss.xml";
+        Feed feed = new Feed(testUser, null, feedUrl, null, feedUrl, null);
+        feed = feedRepository.save(feed);
+
+        mockServer.expect(requestTo(feedUrl))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess(fiPlanningXml, MediaType.APPLICATION_XML));
+
+        CrawlResult result = crawlerService.crawlFeed(feed);
+
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.newArticles()).isEqualTo(2);
+
+        // Feed title should be auto-detected from <channel><title>
+        Feed updatedFeed = feedRepository.findById(feed.getId()).orElseThrow();
+        assertThat(updatedFeed.getTitle())
+                .isEqualTo("FI Planning - アメリカ生活とパーソナルファイナンスの情報シェアサイト");
+        assertThat(updatedFeed.getSiteUrl()).isEqualTo("https://www.fiplanning.com/");
+
+        // Each article should have its own <item><title>, clean author, and resolved article URL
+        List<Article> articles = articleRepository.findAll();
+        assertThat(articles).hasSize(2);
+        assertThat(articles).extracting(Article::getTitle)
+                .containsExactlyInAnyOrder("第三国での銀行口座について", "wealth plan について");
+        assertThat(articles).extracting(Article::getAuthor)
+                .containsExactlyInAnyOrder("ころん（ゲスト）", "テスト（ゲスト）");
+        assertThat(articles).extracting(Article::getArticleUrl)
+                .containsExactlyInAnyOrder(
+                        "https://www.fiplanning.com/forum/20261028-%E7%AC%AC%E4%B8%89%E5%9B%BD",
+                        "https://www.fiplanning.com/forum/20260611-wealth-plan"
+                );
+
+        mockServer.verify();
+    }
 }

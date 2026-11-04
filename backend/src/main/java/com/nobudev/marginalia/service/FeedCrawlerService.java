@@ -25,13 +25,25 @@ import com.nobudev.marginalia.util.UrlSafetyValidator;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PushbackReader;
 import java.net.URI;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.jdom2.Document;
 import org.jdom2.Element;
+import org.jdom2.Namespace;
+import org.jdom2.input.SAXBuilder;
+import org.jdom2.input.sax.XMLReaders;
 
 /**
  * Core feed crawling engine. Fetches RSS/Atom feeds using conditional HTTP
@@ -126,13 +138,8 @@ public class FeedCrawlerService {
                 throw new RuntimeException("Empty response body from feed: " + feed.getFeedUrl());
             }
 
-            // Parse with ROME
-            SyndFeedInput input = new SyndFeedInput();
-            input.setAllowDoctypes(false);
-            SyndFeed syndFeed;
-            try (XmlReader xmlReader = new XmlReader(new ByteArrayInputStream(fetchResult.body()))) {
-                syndFeed = input.build(xmlReader);
-            }
+            // Parse with ROME (pre-normalizing nested HTML in <title>/<dc:creator>/<link>)
+            SyndFeed syndFeed = parseSyndFeed(fetchResult.body(), feed.getFeedUrl());
 
             // Update feed metadata from the parsed feed
             updateFeedMetadata(feed, syndFeed);
@@ -260,7 +267,252 @@ public class FeedCrawlerService {
         return buffer;
     }
 
+    private static final Pattern ANCHOR_HREF_PATTERN = Pattern.compile(
+            "<a\\s+[^>]*href=[\"']([^\"']+)[\"'][^>]*>",
+            Pattern.CASE_INSENSITIVE
+    );
+
+    private static final Pattern HTML_TAG_PATTERN = Pattern.compile("<[^>]+>");
+
+    private static final DateTimeFormatter FLEXIBLE_ISO_OFFSET_DATE_TIME = new DateTimeFormatterBuilder()
+            .parseCaseInsensitive()
+            .append(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            .optionalStart().appendOffset("+HH:MM", "Z").optionalEnd()
+            .optionalStart().appendOffset("+HHMM", "Z").optionalEnd()
+            .optionalStart().appendOffset("+HH", "Z").optionalEnd()
+            .toFormatter(Locale.ROOT);
+
+    /**
+     * Parses raw feed XML bytes into a ROME SyndFeed while enforcing XXE/DOCTYPE
+     * protections and normalizing non-standard CMS/Drupal RSS constructs where
+     * elements like {@code <title>} or {@code <dc:creator>} wrap their text inside
+     * nested HTML elements ({@code <a>}, {@code <span>}) or URL-encode {@code <a>}
+     * tags inside {@code <link>}.
+     */
+    private SyndFeed parseSyndFeed(byte[] body, String feedUrl) throws Exception {
+        SAXBuilder saxBuilder = new SAXBuilder(XMLReaders.NONVALIDATING);
+        saxBuilder.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+        saxBuilder.setFeature("http://xml.org/sax/features/external-general-entities", false);
+        saxBuilder.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+        saxBuilder.setExpandEntities(false);
+
+        Document document;
+        try (XmlReader xmlReader = new XmlReader(new ByteArrayInputStream(body));
+             PushbackReader reader = new PushbackReader(xmlReader, 1)) {
+            int ch;
+            while ((ch = reader.read()) != -1) {
+                if (!Character.isWhitespace(ch) && ch != '\uFEFF') {
+                    reader.unread(ch);
+                    break;
+                }
+            }
+            document = saxBuilder.build(reader);
+        }
+
+        normalizeFeedDocument(document, feedUrl);
+
+        SyndFeedInput input = new SyndFeedInput();
+        input.setAllowDoctypes(false);
+        return input.build(document);
+    }
+
+    private void normalizeFeedDocument(Document document, String fallbackBaseUrl) {
+        if (document == null || !document.hasRootElement()) {
+            return;
+        }
+        Element root = document.getRootElement();
+        String baseUrl = root.getAttributeValue("base", Namespace.XML_NAMESPACE);
+
+        Element channel = root.getChild("channel", root.getNamespace());
+        if (channel == null) {
+            channel = root.getChild("channel");
+        }
+
+        if ((baseUrl == null || baseUrl.isBlank()) && channel != null) {
+            Element channelLink = channel.getChild("link", channel.getNamespace());
+            if (channelLink == null) {
+                channelLink = channel.getChild("link");
+            }
+            if (channelLink != null && !channelLink.getValue().isBlank()) {
+                baseUrl = channelLink.getValue().trim();
+            }
+        }
+        if (baseUrl == null || baseUrl.isBlank()) {
+            baseUrl = fallbackBaseUrl;
+        }
+
+        // Normalize channel/feed-level <title> if it wraps text in child elements
+        normalizeTitleElement(channel != null ? findChildByLocalName(channel, "title") : findChildByLocalName(root, "title"));
+
+        List<Element> items = new ArrayList<>();
+        if (channel != null) {
+            for (Element child : channel.getChildren()) {
+                if ("item".equalsIgnoreCase(child.getName())) {
+                    items.add(child);
+                }
+            }
+        }
+        for (Element child : root.getChildren()) {
+            if ("item".equalsIgnoreCase(child.getName()) || "entry".equalsIgnoreCase(child.getName())) {
+                items.add(child);
+            }
+        }
+
+        for (Element item : items) {
+            String extractedHref = normalizeTitleElement(findChildByLocalName(item, "title"));
+            normalizeLinkElement(findChildByLocalName(item, "link"), extractedHref, baseUrl);
+            normalizeAuthorElements(item);
+            normalizePubDateElement(findChildByLocalName(item, "pubDate"));
+        }
+    }
+
+    private Element findChildByLocalName(Element parent, String localName) {
+        if (parent == null) {
+            return null;
+        }
+        for (Element child : parent.getChildren()) {
+            if (localName.equalsIgnoreCase(child.getName())) {
+                return child;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Flattens nested XML/HTML tags (such as {@code <a href="...">Title</a>}) inside a
+     * {@code <title>} element into direct text so ROME's {@code Element.getText()} reads
+     * the full title. Returns any {@code href} discovered inside a nested {@code <a>}.
+     */
+    private String normalizeTitleElement(Element titleEl) {
+        if (titleEl == null) {
+            return null;
+        }
+        String extractedHref = findFirstAnchorHref(titleEl);
+        if (!titleEl.getChildren().isEmpty()) {
+            String fullText = titleEl.getValue().trim();
+            titleEl.setText(fullText);
+        } else {
+            String rawText = titleEl.getText();
+            if (rawText != null && rawText.contains("<")) {
+                if (extractedHref == null) {
+                    Matcher m = ANCHOR_HREF_PATTERN.matcher(rawText);
+                    if (m.find()) {
+                        extractedHref = m.group(1).trim();
+                    }
+                }
+                if (ANCHOR_HREF_PATTERN.matcher(rawText).find()) {
+                    String stripped = HTML_TAG_PATTERN.matcher(rawText).replaceAll("").trim();
+                    if (!stripped.isEmpty()) {
+                        titleEl.setText(stripped);
+                    }
+                }
+            }
+        }
+        return extractedHref;
+    }
+
+    private String findFirstAnchorHref(Element el) {
+        if ("a".equalsIgnoreCase(el.getName())) {
+            String href = el.getAttributeValue("href");
+            if (href != null && !href.isBlank()) {
+                return href.trim();
+            }
+        }
+        for (Element child : el.getChildren()) {
+            String href = findFirstAnchorHref(child);
+            if (href != null) {
+                return href;
+            }
+        }
+        return null;
+    }
+
+    private void normalizeLinkElement(Element linkEl, String titleAnchorHref, String baseUrl) {
+        if (linkEl == null || linkEl.getAttribute("href") != null) {
+            return;
+        }
+        String childHref = findFirstAnchorHref(linkEl);
+        String rawLink = linkEl.getValue().trim();
+        boolean isMalformedLink = rawLink.isEmpty()
+                || rawLink.contains("%3Ca")
+                || rawLink.contains("%3ca")
+                || rawLink.contains("<a ")
+                || !linkEl.getChildren().isEmpty();
+
+        if (!isMalformedLink) {
+            return;
+        }
+
+        String candidateHref = titleAnchorHref != null ? titleAnchorHref : childHref;
+        if (candidateHref == null && !rawLink.isEmpty()) {
+            try {
+                String decoded = URLDecoder.decode(rawLink, StandardCharsets.UTF_8);
+                Matcher matcher = ANCHOR_HREF_PATTERN.matcher(decoded);
+                if (matcher.find()) {
+                    candidateHref = matcher.group(1).trim();
+                }
+            } catch (Exception ignored) {
+                // Ignore decoding errors and leave original link intact
+            }
+        }
+
+        if (candidateHref != null && !candidateHref.isBlank()) {
+            linkEl.setText(resolveUrl(baseUrl, candidateHref));
+        }
+    }
+
+    private String resolveUrl(String baseUrl, String href) {
+        if (href == null || href.isBlank()) {
+            return baseUrl;
+        }
+        try {
+            if (baseUrl != null && !baseUrl.isBlank()) {
+                return URI.create(baseUrl.trim()).resolve(href.trim()).toString();
+            }
+        } catch (Exception ignored) {
+            // Fallback below
+        }
+        return href.trim();
+    }
+
+    private void normalizeAuthorElements(Element item) {
+        for (Element child : item.getChildren()) {
+            String name = child.getName();
+            boolean isDcCreator = "creator".equalsIgnoreCase(name);
+            boolean isRssAuthor = "author".equalsIgnoreCase(name)
+                    && findChildByLocalName(child, "name") == null;
+            if (isDcCreator || isRssAuthor) {
+                if (!child.getChildren().isEmpty()) {
+                    child.setText(child.getValue().trim());
+                } else if (child.getText() != null) {
+                    child.setText(child.getText().trim());
+                }
+            }
+        }
+    }
+
+    private void normalizePubDateElement(Element pubDateEl) {
+        if (pubDateEl == null) {
+            return;
+        }
+        String raw = pubDateEl.getValue().trim();
+        if (raw.length() >= 19 && Character.isDigit(raw.charAt(0)) && raw.contains("T")) {
+            try {
+                OffsetDateTime odt = OffsetDateTime.parse(raw, FLEXIBLE_ISO_OFFSET_DATE_TIME);
+                pubDateEl.setText(odt.format(DateTimeFormatter.RFC_1123_DATE_TIME));
+            } catch (Exception ignored) {
+                // Leave original pubDate text if it doesn't match ISO-8601
+            }
+        }
+    }
+
     private void updateFeedMetadata(Feed feed, SyndFeed syndFeed) {
+        if (syndFeed.getTitle() != null && !syndFeed.getTitle().isBlank()) {
+            String currentTitle = feed.getTitle();
+            if (currentTitle == null || currentTitle.isBlank() || currentTitle.equals(feed.getFeedUrl())) {
+                feed.setTitle(truncate(syndFeed.getTitle().trim(), 255));
+            }
+        }
         if (syndFeed.getLink() != null && !syndFeed.getLink().isBlank()) {
             feed.setSiteUrl(syndFeed.getLink());
         }
@@ -295,20 +547,52 @@ public class FeedCrawlerService {
     /**
      * Processes a single feed entry. Returns true if a new article was saved,
      * false if it already existed (deduplicated by feed_id + guid).
-     * Backfills missing thumbnail images for existing articles if now available.
+     * Backfills missing metadata/thumbnails for existing articles if now available.
      */
     private boolean processEntry(Feed feed, SyndEntry entry) {
         String guid = extractGuid(entry);
+        String resolvedTitle = (entry.getTitle() != null && !entry.getTitle().isBlank())
+                ? truncate(entry.getTitle().trim(), 512)
+                : "Untitled";
+        String resolvedAuthor = (entry.getAuthor() != null && !entry.getAuthor().isBlank())
+                ? truncate(entry.getAuthor().trim(), 255)
+                : null;
+        String resolvedArticleUrl = (entry.getLink() != null && !entry.getLink().isBlank())
+                ? entry.getLink().trim()
+                : feed.getSiteUrl();
 
         var existingOpt = articleRepository.findByFeedIdAndGuid(feed.getId(), guid);
         if (existingOpt.isPresent()) {
             Article existing = existingOpt.get();
+            boolean updated = false;
+            if ((existing.getTitle() == null || existing.getTitle().isBlank() || "Untitled".equals(existing.getTitle()))
+                    && !"Untitled".equals(resolvedTitle)) {
+                existing.setTitle(resolvedTitle);
+                if (entry.getPublishedDate() != null || entry.getUpdatedDate() != null) {
+                    existing.setPublishedAt(extractPublishedDate(entry));
+                }
+                updated = true;
+            }
+            if ((existing.getAuthor() == null || existing.getAuthor().isBlank()) && resolvedAuthor != null) {
+                existing.setAuthor(resolvedAuthor);
+                updated = true;
+            }
+            if (resolvedArticleUrl != null
+                    && (existing.getArticleUrl() == null
+                        || existing.getArticleUrl().contains("%3Ca")
+                        || existing.getArticleUrl().contains("%3ca"))) {
+                existing.setArticleUrl(resolvedArticleUrl);
+                updated = true;
+            }
             if (existing.getImageUrl() == null) {
                 String img = extractImageUrl(entry, existing);
                 if (img != null) {
                     existing.setImageUrl(img);
-                    articleRepository.save(existing);
+                    updated = true;
                 }
+            }
+            if (updated) {
+                articleRepository.save(existing);
             }
             return false;
         }
@@ -316,11 +600,9 @@ public class FeedCrawlerService {
         Article article = new Article();
         article.setFeed(feed);
         article.setGuid(guid);
-        article.setTitle(truncate(
-                entry.getTitle() != null ? entry.getTitle() : "Untitled", 512));
-        article.setAuthor(truncate(entry.getAuthor(), 255));
-        article.setArticleUrl(
-                entry.getLink() != null ? entry.getLink() : feed.getSiteUrl());
+        article.setTitle(resolvedTitle);
+        article.setAuthor(resolvedAuthor);
+        article.setArticleUrl(resolvedArticleUrl);
         article.setPublishedAt(extractPublishedDate(entry));
 
         // Extract full content (prefer content over description)
