@@ -12,7 +12,6 @@ import {
   RotateCw,
   X,
   Settings,
-  GripVertical,
 } from 'lucide-react';
 import {
   DndContext,
@@ -103,32 +102,24 @@ function SortableFeedItem({
     <div
       ref={setNodeRef}
       style={style}
+      {...attributes}
+      {...listeners}
       onClick={onSelect}
       className={cn(
-        'group/item flex items-center justify-between px-1.5 py-1 rounded-md text-xs cursor-pointer transition-colors',
+        'group/item flex items-center justify-between px-2 py-1 rounded-md text-xs cursor-pointer active:cursor-grabbing transition-colors [-webkit-touch-callout:none]',
         isDragging && 'opacity-35 bg-amberAccent-100/40',
         isFeedSelected
           ? 'bg-amberAccent-100/70 text-amberAccent-900 font-semibold'
           : 'text-ink-600 hover:bg-paper-200/50 hover:text-ink-900'
       )}
     >
-      <div className="flex items-center space-x-1.5 flex-1 min-w-0 pr-1">
-        <button
-          type="button"
-          {...attributes}
-          {...listeners}
-          onClick={(e) => e.stopPropagation()}
-          className="touch-none p-0.5 -ml-0.5 text-ink-300 hover:text-ink-600 cursor-grab active:cursor-grabbing rounded shrink-0"
-          title="Drag to reorder feed"
-          aria-label={`Drag ${feed.title}`}
-        >
-          <GripVertical className="w-3 h-3" />
-        </button>
+      <div className="flex items-center space-x-2 flex-1 min-w-0 pr-1">
         {feed.iconUrl ? (
           <img
             src={feed.iconUrl}
             alt=""
-            className="w-3.5 h-3.5 rounded shrink-0 object-contain"
+            draggable={false}
+            className="w-3.5 h-3.5 rounded shrink-0 object-contain pointer-events-none"
             onError={(e) => {
               (e.target as HTMLElement).style.display = 'none';
             }}
@@ -147,6 +138,8 @@ function SortableFeedItem({
         )}
         <button
           type="button"
+          onMouseDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
           onClick={async (e) => {
             e.stopPropagation();
             if (confirm(`Unsubscribe from "${feed.title}"?`)) {
@@ -225,28 +218,21 @@ function SortableCategorySection({
     >
       {/* Category Header */}
       <div
+        {...attributes}
+        {...listeners}
         onClick={onSelectCategory}
         className={cn(
-          'group flex items-center justify-between px-1.5 py-1.5 rounded-lg text-xs cursor-pointer transition-colors',
+          'group flex items-center justify-between px-2 py-1.5 rounded-lg text-xs cursor-pointer active:cursor-grabbing transition-colors [-webkit-touch-callout:none]',
           isCatSelected
             ? 'bg-paper-200 text-ink-900 font-semibold'
             : 'text-ink-700 hover:bg-paper-200/50 hover:text-ink-900'
         )}
       >
-        <div className="flex items-center space-x-1 flex-1 min-w-0 pr-1">
+        <div className="flex items-center space-x-1.5 flex-1 min-w-0 pr-1">
           <button
             type="button"
-            {...attributes}
-            {...listeners}
-            onClick={(e) => e.stopPropagation()}
-            className="touch-none p-0.5 text-ink-300 hover:text-ink-600 cursor-grab active:cursor-grabbing rounded shrink-0"
-            title="Drag to reorder folder"
-            aria-label={`Drag folder ${category.name}`}
-          >
-            <GripVertical className="w-3 h-3" />
-          </button>
-          <button
-            type="button"
+            onMouseDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
             onClick={onToggleExpand}
             className="p-0.5 text-ink-400 hover:text-ink-800 rounded shrink-0"
           >
@@ -257,7 +243,7 @@ function SortableCategorySection({
           ) : (
             <Folder className="w-3.5 h-3.5 text-amberAccent-700 shrink-0" />
           )}
-          <span className="truncate pl-0.5">{category.name}</span>
+          <span className="truncate">{category.name}</span>
         </div>
 
         <div className="flex items-center space-x-1.5">
@@ -275,7 +261,7 @@ function SortableCategorySection({
           items={catFeeds.map((f) => `feed-${f.id}`)}
           strategy={verticalListSortingStrategy}
         >
-          <div className="pl-5 space-y-0.5 border-l border-paper-200/80 ml-4">
+          <div className="pl-6 space-y-0.5 border-l border-paper-200/80 ml-3.5">
             {catFeeds.map((feed) => {
               const unread = unreadByFeed[feed.id] || 0;
               const isFeedSelected = currentFilter.type === 'feed' && currentFilter.feedId === feed.id;
@@ -365,7 +351,7 @@ function UncategorizedSection({
           items={feeds.map((f) => `feed-${f.id}`)}
           strategy={verticalListSortingStrategy}
         >
-          <div className="pl-5 space-y-0.5 border-l border-paper-200/80 ml-4">
+          <div className="pl-6 space-y-0.5 border-l border-paper-200/80 ml-3.5">
             {feeds.map((feed) => {
               const unread = unreadByFeed[feed.id] || 0;
               const isFeedSelected = currentFilter.type === 'feed' && currentFilter.feedId === feed.id;
@@ -423,10 +409,10 @@ export function Sidebar({
 
   const sensors = useSensors(
     useSensor(MouseSensor, {
-      activationConstraint: { distance: 3 },
+      activationConstraint: { distance: 6 },
     }),
     useSensor(TouchSensor, {
-      activationConstraint: { delay: 60, tolerance: 8 },
+      activationConstraint: { delay: 220, tolerance: 6 },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
@@ -528,6 +514,9 @@ export function Sidebar({
   };
 
   const handleDragStart = (event: DragStartEvent) => {
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      navigator.vibrate(10);
+    }
     const data = event.active.data.current;
     if (data?.type === 'category') {
       setActiveCategory(data.category as CategoryDto);
@@ -838,13 +827,11 @@ export function Sidebar({
           <DragOverlay>
             {activeCategory ? (
               <div className="flex items-center space-x-2 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-paper-50 text-ink-900 border border-amberAccent-400 shadow-lg">
-                <GripVertical className="w-3 h-3 text-ink-400" />
                 <Folder className="w-3.5 h-3.5 text-amberAccent-700 shrink-0" />
                 <span className="truncate">{activeCategory.name}</span>
               </div>
             ) : activeFeed ? (
               <div className="flex items-center space-x-2 px-2.5 py-1 rounded-md text-xs font-semibold bg-paper-50 text-ink-900 border border-amberAccent-400 shadow-lg">
-                <GripVertical className="w-3 h-3 text-ink-400" />
                 {activeFeed.iconUrl ? (
                   <img
                     src={activeFeed.iconUrl}
