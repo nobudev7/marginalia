@@ -73,12 +73,16 @@ public class FeedService {
                 .max()
                 .orElse(-1) + 1;
 
+        String initialTitle = (request.title() != null && !request.title().isBlank())
+                ? request.title().trim()
+                : request.feedUrl();
+
         Feed feed = new Feed(
                 user,
                 category,
                 request.feedUrl(),
                 null,
-                request.title() != null ? request.title() : request.feedUrl(),
+                initialTitle,
                 null
         );
         feed.setSortOrder(nextSortOrder);

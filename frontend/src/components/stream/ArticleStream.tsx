@@ -87,6 +87,16 @@ export function ArticleStream({
     setLongPressArticle(null);
   }, [filter.type, currentFeedId, currentCategoryId]);
 
+  // Refresh article stream when a subscription is added or removed
+  const prevFeedCountRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (loading) return;
+    if (prevFeedCountRef.current !== null && prevFeedCountRef.current !== feeds.length) {
+      refresh();
+    }
+    prevFeedCountRef.current = feeds.length;
+  }, [feeds.length, loading, refresh]);
+
   const handleSelectArticle = useCallback((article: ArticleDto) => {
     setSelectedArticle(article);
     onSelectArticle?.(article);
