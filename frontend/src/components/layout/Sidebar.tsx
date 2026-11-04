@@ -50,6 +50,7 @@ interface SidebarProps {
   unreadByFeed: Record<number, number>;
   onOpenAddFeed: () => void;
   onOpenSettings?: () => void;
+  onDeleteCategory?: (categoryId: number) => Promise<void>;
   onDeleteFeed: (feedId: number) => Promise<void>;
   onRefreshFeeds: () => Promise<void>;
   onReorderCategories?: (orderedIds: number[]) => Promise<void>;
@@ -167,6 +168,7 @@ interface SortableCategorySectionProps {
   unreadByFeed: Record<number, number>;
   onToggleExpand: (e: React.MouseEvent) => void;
   onSelectCategory: () => void;
+  onDeleteCategory?: () => Promise<void>;
   onSelectFeed: (feed: FeedDto) => void;
   onDeleteFeed: (feedId: number) => Promise<void>;
 }
@@ -182,6 +184,7 @@ function SortableCategorySection({
   unreadByFeed,
   onToggleExpand,
   onSelectCategory,
+  onDeleteCategory,
   onSelectFeed,
   onDeleteFeed,
 }: SortableCategorySectionProps) {
@@ -246,11 +249,32 @@ function SortableCategorySection({
           <span className="truncate">{category.name}</span>
         </div>
 
-        <div className="flex items-center space-x-1.5">
+        <div className="flex items-center space-x-1">
           {catUnread > 0 && (
             <span className="px-1.5 py-0.2 rounded-full text-[10px] font-medium bg-paper-300/80 text-ink-700">
               {catUnread}
             </span>
+          )}
+          {onDeleteCategory && (
+            <button
+              type="button"
+              onMouseDown={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
+              onClick={async (e) => {
+                e.stopPropagation();
+                const confirmMsg =
+                  catFeeds.length > 0
+                    ? `Delete folder "${category.name}"? The ${catFeeds.length === 1 ? '1 feed' : `${catFeeds.length} feeds`} under this folder will be moved to Uncategorized.`
+                    : `Delete folder "${category.name}"?`;
+                if (confirm(confirmMsg)) {
+                  await onDeleteCategory();
+                }
+              }}
+              className="[@media(hover:hover)]:opacity-0 group-hover:opacity-100 p-1 text-ink-400 hover:text-red-700 rounded transition-opacity"
+              title="Delete folder"
+            >
+              <Trash2 className="w-3 h-3" />
+            </button>
           )}
         </div>
       </div>
@@ -388,6 +412,7 @@ export function Sidebar({
   unreadByFeed,
   onOpenAddFeed,
   onOpenSettings,
+  onDeleteCategory,
   onDeleteFeed,
   onRefreshFeeds,
   onReorderCategories,
@@ -797,6 +822,9 @@ export function Sidebar({
                   onToggleExpand={(e) => toggleCategory(catKey, e)}
                   onSelectCategory={() =>
                     handleSelect({ type: 'category', categoryId: cat.id, name: cat.name })
+                  }
+                  onDeleteCategory={
+                    onDeleteCategory ? () => onDeleteCategory(cat.id) : undefined
                   }
                   onSelectFeed={(feed) =>
                     handleSelect({ type: 'feed', feedId: feed.id, title: feed.title })

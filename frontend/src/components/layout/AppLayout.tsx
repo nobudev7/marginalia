@@ -10,7 +10,7 @@ import { useFeeds } from '../../hooks/useFeeds';
 import type { NavFilter, ArticleDto } from '../../types';
 
 export function AppLayout() {
-  const { categories, addCategory, refreshCategories, reorderCategories } = useCategories();
+  const { categories, addCategory, deleteCategory, refreshCategories, reorderCategories } = useCategories();
   const { 
     feeds, 
     totalUnread, 
@@ -29,6 +29,14 @@ export function AppLayout() {
 
   const handleSelectArticle = (article: ArticleDto) => {
     setSelectedArticle(article);
+  };
+
+  const handleDeleteCategory = async (categoryId: number) => {
+    await deleteCategory(categoryId);
+    await refreshFeeds();
+    if (currentFilter.type === 'category' && currentFilter.categoryId === categoryId) {
+      setCurrentFilter({ type: 'all' });
+    }
   };
 
   return (
@@ -51,6 +59,7 @@ export function AppLayout() {
           unreadByFeed={unreadByFeed}
           onOpenAddFeed={() => setIsAddFeedModalOpen(true)}
           onOpenSettings={() => setIsSettingsModalOpen(true)}
+          onDeleteCategory={handleDeleteCategory}
           onDeleteFeed={deleteFeed}
           onRefreshFeeds={refreshFeeds}
           onReorderCategories={reorderCategories}
