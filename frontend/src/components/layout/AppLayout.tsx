@@ -16,6 +16,7 @@ export function AppLayout() {
     totalUnread, 
     unreadByFeed, 
     addFeed, 
+    updateFeed,
     deleteFeed, 
     refreshFeeds, 
     reorderFeeds,
@@ -77,6 +78,7 @@ export function AppLayout() {
             totalUnread={totalUnread}
             onUnreadChanged={refreshFeeds}
             onOpenAddFeed={() => setIsAddFeedModalOpen(true)}
+            onUpdateFeed={updateFeed}
             onSelectArticle={handleSelectArticle}
           />
         </main>

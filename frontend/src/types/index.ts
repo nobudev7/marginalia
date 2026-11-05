@@ -29,6 +29,8 @@ export interface FeedDto {
   categoryId: number | null;
   categoryName: string | null;
   sortOrder?: number;
+  filterKeywords?: string[];
+  filteredCount?: number;
   lastFetchedAt: string | null;
   fetchErrorCount: number;
   lastErrorMessage: string | null;
@@ -90,6 +92,7 @@ export interface FeedRequest {
   feedUrl: string;
   title?: string;
   categoryId?: number | null;
+  filterKeywords?: string[];
 }
 
 export interface CategoryRequest {

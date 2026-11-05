@@ -37,17 +37,17 @@ public class ArticleService {
     }
 
     public Page<ArticleResponse> getArticlesByFeed(Long feedId, Long userId, Pageable pageable) {
-        Page<Article> articles = articleRepository.findByFeedIdAndFeedUserIdOrderByPublishedAtDesc(feedId, userId, pageable);
+        Page<Article> articles = articleRepository.findByFeedIdAndFeedUserIdAndFilteredFalseOrderByPublishedAtDesc(feedId, userId, pageable);
         return enrichWithUserState(articles, userId);
     }
 
     public Page<ArticleResponse> getArticlesByCategory(Long categoryId, Long userId, Pageable pageable) {
-        Page<Article> articles = articleRepository.findByFeedCategoryIdAndFeedUserIdOrderByPublishedAtDesc(categoryId, userId, pageable);
+        Page<Article> articles = articleRepository.findByFeedCategoryIdAndFeedUserIdAndFilteredFalseOrderByPublishedAtDesc(categoryId, userId, pageable);
         return enrichWithUserState(articles, userId);
     }
 
     public Page<ArticleResponse> getAllArticles(Long userId, Pageable pageable) {
-        Page<Article> articles = articleRepository.findByFeedUserIdOrderByPublishedAtDesc(userId, pageable);
+        Page<Article> articles = articleRepository.findByFeedUserIdAndFilteredFalseOrderByPublishedAtDesc(userId, pageable);
         return enrichWithUserState(articles, userId);
     }
 

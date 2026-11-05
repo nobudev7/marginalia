@@ -73,8 +73,8 @@ public class ArticleController {
     @GetMapping("/unread-counts")
     public Map<String, Object> getUnreadCounts() {
         User user = userService.getCurrentUser();
-        long total = articleService.getUnreadCount(user.getId());
         Map<Long, Long> byFeed = articleService.getUnreadCountsByFeed(user.getId());
+        long total = byFeed.values().stream().mapToLong(Long::longValue).sum();
         return Map.of(
                 "total", total,
                 "byFeed", byFeed

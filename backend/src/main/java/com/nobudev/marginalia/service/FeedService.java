@@ -5,8 +5,10 @@ import com.nobudev.marginalia.dto.FeedResponse;
 import com.nobudev.marginalia.entity.Category;
 import com.nobudev.marginalia.entity.Feed;
 import com.nobudev.marginalia.entity.User;
+import com.nobudev.marginalia.repository.ArticleRepository;
 import com.nobudev.marginalia.repository.CategoryRepository;
 import com.nobudev.marginalia.repository.FeedRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,23 +28,36 @@ public class FeedService {
 
     private final FeedRepository feedRepository;
     private final CategoryRepository categoryRepository;
+    private final ArticleRepository articleRepository;
 
     public FeedService(FeedRepository feedRepository,
                        CategoryRepository categoryRepository) {
+        this(feedRepository, categoryRepository, null);
+    }
+
+    @Autowired
+    public FeedService(FeedRepository feedRepository,
+                       CategoryRepository categoryRepository,
+                       ArticleRepository articleRepository) {
         this.feedRepository = feedRepository;
         this.categoryRepository = categoryRepository;
+        this.articleRepository = articleRepository;
     }
 
     public List<FeedResponse> getFeedsByUser(Long userId) {
+        Map<Long, Long> filteredCounts = getFilteredCountsByFeed(userId);
         return feedRepository.findByUserIdOrderBySortOrderAscTitleAsc(userId).stream()
-                .map(FeedResponse::from)
+                .map(feed -> FeedResponse.from(feed, filteredCounts.getOrDefault(feed.getId(), 0L)))
                 .toList();
     }
 
     public FeedResponse getFeed(Long feedId, Long userId) {
         Feed feed = feedRepository.findByIdAndUserId(feedId, userId)
                 .orElseThrow(() -> new IllegalArgumentException("Feed not found: " + feedId));
-        return FeedResponse.from(feed);
+        long filteredCount = articleRepository != null
+                ? articleRepository.countFilteredByFeedIdAndUserId(feedId, userId)
+                : 0L;
+        return FeedResponse.from(feed, filteredCount);
     }
 
     /**
@@ -86,6 +101,9 @@ public class FeedService {
                 null
         );
         feed.setSortOrder(nextSortOrder);
+        if (request.filterKeywords() != null) {
+            feed.setFilterKeywordList(request.filterKeywords());
+        }
         return FeedResponse.from(feedRepository.save(feed));
     }
 
@@ -130,8 +148,8 @@ public class FeedService {
         Feed feed = feedRepository.findByIdAndUserId(feedId, userId)
                 .orElseThrow(() -> new IllegalArgumentException("Feed not found: " + feedId));
 
-        if (request.title() != null) {
-            feed.setTitle(request.title());
+        if (request.title() != null && !request.title().isBlank()) {
+            feed.setTitle(request.title().trim());
         }
 
         if (request.categoryId() != null) {
@@ -141,8 +159,66 @@ public class FeedService {
             feed.setCategory(category);
         }
 
+        boolean filtersUpdated = false;
+        if (request.filterKeywords() != null) {
+            String previous = feed.getFilterKeywords();
+            feed.setFilterKeywordList(request.filterKeywords());
+            filtersUpdated = !Objects.equals(previous, feed.getFilterKeywords());
+        }
+
         feed = feedRepository.save(feed);
-        return FeedResponse.from(feed);
+
+        if (filtersUpdated && articleRepository != null) {
+            reapplyFeedFilters(feed, userId);
+        }
+
+        long filteredCount = articleRepository != null
+                ? articleRepository.countFilteredByFeedIdAndUserId(feed.getId(), userId)
+                : 0L;
+        return FeedResponse.from(feed, filteredCount);
+    }
+
+    /**
+     * Re-evaluates title filter keywords against unread and currently filtered
+     * articles of the given feed using a lightweight (id, title, filtered)
+     * projection and at most two bulk SQL UPDATE statements.
+     */
+    private void reapplyFeedFilters(Feed feed, Long userId) {
+        var candidates = articleRepository.findUnreadOrFilteredTitlesByFeedIdAndUserId(feed.getId(), userId);
+        if (candidates.isEmpty()) {
+            return;
+        }
+
+        List<Long> toFilterIds = new ArrayList<>();
+        List<Long> toUnfilterIds = new ArrayList<>();
+
+        for (var row : candidates) {
+            boolean shouldFilter = feed.matchesTitleFilter(row.getTitle());
+            if (shouldFilter && !row.isFiltered()) {
+                toFilterIds.add(row.getId());
+            } else if (!shouldFilter && row.isFiltered()) {
+                toUnfilterIds.add(row.getId());
+            }
+        }
+
+        if (!toFilterIds.isEmpty()) {
+            articleRepository.updateFilteredByIds(feed.getId(), toFilterIds, true);
+        }
+        if (!toUnfilterIds.isEmpty()) {
+            articleRepository.updateFilteredByIds(feed.getId(), toUnfilterIds, false);
+        }
+    }
+
+    private Map<Long, Long> getFilteredCountsByFeed(Long userId) {
+        if (articleRepository == null) {
+            return Map.of();
+        }
+        List<Object[]> rows = articleRepository.countFilteredGroupedByFeed(userId);
+        Map<Long, Long> counts = new HashMap<>();
+        for (Object[] row : rows) {
+            counts.put((Long) row[0], (Long) row[1]);
+        }
+        return counts;
     }
 
     @Transactional

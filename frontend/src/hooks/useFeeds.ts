@@ -85,6 +85,15 @@ export function useFeeds() {
     await fetchFeedsAndCounts();
   }, [fetchFeedsAndCounts]);
 
+  const updateFeed = useCallback(async (id: number, request: FeedRequest): Promise<FeedDto> => {
+    const updated = await apiFetch<FeedDto>(`/api/feeds/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(request),
+    });
+    await fetchFeedsAndCounts();
+    return updated;
+  }, [fetchFeedsAndCounts]);
+
   const reorderFeeds = useCallback(async (
     categoryId: number | null,
     orderedFeedIds: number[],
@@ -132,6 +141,7 @@ export function useFeeds() {
     error,
     refreshFeeds: fetchFeedsAndCounts,
     addFeed,
+    updateFeed,
     deleteFeed,
     crawlFeed,
     reorderFeeds,
