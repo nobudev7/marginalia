@@ -568,6 +568,7 @@ public class FeedCrawlerService {
             if ((existing.getTitle() == null || existing.getTitle().isBlank() || "Untitled".equals(existing.getTitle()))
                     && !"Untitled".equals(resolvedTitle)) {
                 existing.setTitle(resolvedTitle);
+                existing.setFiltered(feed.matchesTitleFilter(resolvedTitle));
                 if (entry.getPublishedDate() != null || entry.getUpdatedDate() != null) {
                     existing.setPublishedAt(extractPublishedDate(entry));
                 }
@@ -601,6 +602,7 @@ public class FeedCrawlerService {
         article.setFeed(feed);
         article.setGuid(guid);
         article.setTitle(resolvedTitle);
+        article.setFiltered(feed.matchesTitleFilter(resolvedTitle));
         article.setAuthor(resolvedAuthor);
         article.setArticleUrl(resolvedArticleUrl);
         article.setPublishedAt(extractPublishedDate(entry));

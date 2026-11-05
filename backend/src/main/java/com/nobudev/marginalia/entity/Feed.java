@@ -2,6 +2,11 @@ package com.nobudev.marginalia.entity;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
 @Entity
 @Table(
@@ -57,6 +62,9 @@ public class Feed {
 
     @Column(name = "sort_order", nullable = false)
     private int sortOrder = 0;
+
+    @Column(name = "filter_keywords", columnDefinition = "TEXT")
+    private String filterKeywords;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -197,6 +205,64 @@ public class Feed {
 
     public void setSortOrder(int sortOrder) {
         this.sortOrder = sortOrder;
+    }
+
+    public String getFilterKeywords() {
+        return filterKeywords;
+    }
+
+    public void setFilterKeywords(String filterKeywords) {
+        this.filterKeywords = filterKeywords;
+    }
+
+    public List<String> getFilterKeywordList() {
+        if (filterKeywords == null || filterKeywords.isBlank()) {
+            return List.of();
+        }
+        List<String> result = new ArrayList<>();
+        for (String line : filterKeywords.split("\\r?\\n")) {
+            String trimmed = line.trim();
+            if (!trimmed.isEmpty()) {
+                result.add(trimmed);
+            }
+        }
+        return List.copyOf(result);
+    }
+
+    public void setFilterKeywordList(List<String> keywords) {
+        if (keywords == null || keywords.isEmpty()) {
+            this.filterKeywords = null;
+            return;
+        }
+        Map<String, String> normalized = new LinkedHashMap<>();
+        for (String kw : keywords) {
+            if (kw != null) {
+                for (String part : kw.split("\\r?\\n")) {
+                    String trimmed = part.trim();
+                    if (!trimmed.isEmpty()) {
+                        normalized.putIfAbsent(trimmed.toLowerCase(Locale.ROOT), trimmed);
+                    }
+                }
+            }
+        }
+        this.filterKeywords = normalized.isEmpty() ? null : String.join("\n", normalized.values());
+    }
+
+    public boolean matchesTitleFilter(String articleTitle) {
+        if (articleTitle == null || articleTitle.isBlank()) {
+            return false;
+        }
+        List<String> keywords = getFilterKeywordList();
+        if (keywords.isEmpty()) {
+            return false;
+        }
+        String lowerTitle = articleTitle.toLowerCase(Locale.ROOT);
+        for (String kw : keywords) {
+            if (lowerTitle.contains(kw.toLowerCase(Locale.ROOT))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public LocalDateTime getCreatedAt() {

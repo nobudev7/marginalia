@@ -1,6 +1,8 @@
 package com.nobudev.marginalia.service;
 
 import com.nobudev.marginalia.dto.CrawlResult;
+import com.nobudev.marginalia.dto.FeedRequest;
+import com.nobudev.marginalia.dto.FeedResponse;
 import com.nobudev.marginalia.entity.Article;
 import com.nobudev.marginalia.entity.Feed;
 import com.nobudev.marginalia.entity.User;
@@ -12,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
@@ -39,6 +42,12 @@ class FeedCrawlerServiceTest {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private FeedService feedService;
+
+    @Autowired
+    private ArticleService articleService;
 
     private MockRestServiceServer mockServer;
     private FeedCrawlerService crawlerService;
@@ -492,6 +501,57 @@ class FeedCrawlerServiceTest {
                         "https://www.fiplanning.com/forum/20261028-%E7%AC%AC%E4%B8%89%E5%9B%BD",
                         "https://www.fiplanning.com/forum/20260611-wealth-plan"
                 );
+
+        mockServer.verify();
+    }
+
+    @Test
+    void testFeedFilterKeywordsExcludeMatchingArticlesOnCrawlAndUpdate() {
+        Feed feed = new Feed(testUser, null, "https://example.com/rss.xml", null, "Filter Test Feed", null);
+        feed.setFilterKeywordList(List.of("Second"));
+        feed = feedRepository.save(feed);
+
+        mockServer.expect(requestTo("https://example.com/rss.xml"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess(
+                        new ClassPathResource("fixtures/sample-rss.xml"),
+                        MediaType.APPLICATION_XML
+                ));
+
+        CrawlResult result = crawlerService.crawlFeed(feed);
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.newArticles()).isEqualTo(2);
+
+        // Only "First RSS Article" should appear in stream and unread counts; "Second RSS Article" is filtered
+        var unreadPage = articleService.getUnreadArticlesByFeed(feed.getId(), testUser.getId(), PageRequest.of(0, 20));
+        assertThat(unreadPage.getContent()).extracting(a -> a.title()).containsExactly("First RSS Article");
+        assertThat(articleService.getUnreadCount(testUser.getId())).isEqualTo(1L);
+
+        FeedResponse feedDto = feedService.getFeed(feed.getId(), testUser.getId());
+        assertThat(feedDto.filteredCount()).isEqualTo(1L);
+        assertThat(feedDto.filterKeywords()).containsExactly("Second");
+
+        // Mark "First RSS Article" as read, then update filter keywords to ["First", "Second"]
+        Long firstArticleId = unreadPage.getContent().getFirst().id();
+        articleService.markAsRead(testUser.getId(), firstArticleId, true);
+
+        FeedResponse afterAddFilter = feedService.updateFeed(
+                feed.getId(),
+                new FeedRequest(feed.getFeedUrl(), feed.getTitle(), null, List.of("First", "Second")),
+                testUser.getId()
+        );
+        // Option A: already-read "First RSS Article" is not retroactively filtered; only "Second" remains filtered
+        assertThat(afterAddFilter.filteredCount()).isEqualTo(1L);
+
+        // Now clear filter keywords -> "Second RSS Article" (which was filtered) is restored to unread stream
+        FeedResponse afterClearFilter = feedService.updateFeed(
+                feed.getId(),
+                new FeedRequest(feed.getFeedUrl(), feed.getTitle(), null, List.of()),
+                testUser.getId()
+        );
+        assertThat(afterClearFilter.filteredCount()).isEqualTo(0L);
+        var restoredUnread = articleService.getUnreadArticlesByFeed(feed.getId(), testUser.getId(), PageRequest.of(0, 20));
+        assertThat(restoredUnread.getContent()).extracting(a -> a.title()).containsExactly("Second RSS Article");
 
         mockServer.verify();
     }

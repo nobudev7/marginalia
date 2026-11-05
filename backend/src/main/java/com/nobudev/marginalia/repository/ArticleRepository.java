@@ -5,6 +5,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -15,14 +16,21 @@ import java.util.Optional;
 @Repository
 public interface ArticleRepository extends JpaRepository<Article, Long> {
 
+    interface ArticleTitleStateProjection {
+        Long getId();
+        String getTitle();
+        boolean isFiltered();
+    }
+
     /**
-     * Counts unread articles for a user. An article is "unread" if no
+     * Counts unread, non-filtered articles for a user. An article is "unread" if no
      * ArticleUserState row exists with is_read = true. This correctly handles
      * the sparse state table where newly crawled articles have no state row.
      */
     @Query("""
         SELECT COUNT(a) FROM Article a
         WHERE a.feed.user.id = :userId
+          AND a.filtered = false
           AND NOT EXISTS (
               SELECT 1 FROM ArticleUserState s
               WHERE s.article.id = a.id
@@ -35,6 +43,7 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
     @Query("""
         SELECT a.feed.id, COUNT(a) FROM Article a
         WHERE a.feed.user.id = :userId
+          AND a.filtered = false
           AND NOT EXISTS (
               SELECT 1 FROM ArticleUserState s
               WHERE s.article.id = a.id
@@ -44,6 +53,22 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
         GROUP BY a.feed.id
     """)
     java.util.List<Object[]> countUnreadGroupedByFeed(@Param("userId") Long userId);
+
+    @Query("""
+        SELECT a.feed.id, COUNT(a) FROM Article a
+        WHERE a.feed.user.id = :userId
+          AND a.filtered = true
+        GROUP BY a.feed.id
+    """)
+    java.util.List<Object[]> countFilteredGroupedByFeed(@Param("userId") Long userId);
+
+    @Query("""
+        SELECT COUNT(a) FROM Article a
+        WHERE a.feed.id = :feedId
+          AND a.feed.user.id = :userId
+          AND a.filtered = true
+    """)
+    long countFilteredByFeedIdAndUserId(@Param("feedId") Long feedId, @Param("userId") Long userId);
 
     @Override
     @EntityGraph(attributePaths = {"feed"})
@@ -58,15 +83,25 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
     Page<Article> findByFeedIdAndFeedUserIdOrderByPublishedAtDesc(Long feedId, Long userId, Pageable pageable);
 
     @EntityGraph(attributePaths = {"feed"})
+    Page<Article> findByFeedIdAndFeedUserIdAndFilteredFalseOrderByPublishedAtDesc(Long feedId, Long userId, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"feed"})
     Page<Article> findByFeedCategoryIdAndFeedUserIdOrderByPublishedAtDesc(Long categoryId, Long userId, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"feed"})
+    Page<Article> findByFeedCategoryIdAndFeedUserIdAndFilteredFalseOrderByPublishedAtDesc(Long categoryId, Long userId, Pageable pageable);
 
     @EntityGraph(attributePaths = {"feed"})
     Page<Article> findByFeedUserIdOrderByPublishedAtDesc(Long userId, Pageable pageable);
 
     @EntityGraph(attributePaths = {"feed"})
+    Page<Article> findByFeedUserIdAndFilteredFalseOrderByPublishedAtDesc(Long userId, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"feed"})
     @Query(value = """
         SELECT a FROM Article a
         WHERE a.feed.user.id = :userId
+          AND a.filtered = false
           AND NOT EXISTS (
               SELECT 1 FROM ArticleUserState s
               WHERE s.article.id = a.id
@@ -78,6 +113,7 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
     countQuery = """
         SELECT COUNT(a) FROM Article a
         WHERE a.feed.user.id = :userId
+          AND a.filtered = false
           AND NOT EXISTS (
               SELECT 1 FROM ArticleUserState s
               WHERE s.article.id = a.id
@@ -92,6 +128,7 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
         SELECT a FROM Article a
         WHERE a.feed.id = :feedId
           AND a.feed.user.id = :userId
+          AND a.filtered = false
           AND NOT EXISTS (
               SELECT 1 FROM ArticleUserState s
               WHERE s.article.id = a.id
@@ -104,6 +141,7 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
         SELECT COUNT(a) FROM Article a
         WHERE a.feed.id = :feedId
           AND a.feed.user.id = :userId
+          AND a.filtered = false
           AND NOT EXISTS (
               SELECT 1 FROM ArticleUserState s
               WHERE s.article.id = a.id
@@ -118,6 +156,7 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
         SELECT a FROM Article a
         WHERE a.feed.category.id = :categoryId
           AND a.feed.user.id = :userId
+          AND a.filtered = false
           AND NOT EXISTS (
               SELECT 1 FROM ArticleUserState s
               WHERE s.article.id = a.id
@@ -130,6 +169,7 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
         SELECT COUNT(a) FROM Article a
         WHERE a.feed.category.id = :categoryId
           AND a.feed.user.id = :userId
+          AND a.filtered = false
           AND NOT EXISTS (
               SELECT 1 FROM ArticleUserState s
               WHERE s.article.id = a.id
@@ -142,6 +182,7 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
     @Query("""
         SELECT a.id FROM Article a
         WHERE a.feed.user.id = :userId
+          AND a.filtered = false
           AND NOT EXISTS (
               SELECT 1 FROM ArticleUserState s
               WHERE s.article.id = a.id
@@ -155,6 +196,7 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
         SELECT a.id FROM Article a
         WHERE a.feed.id = :feedId
           AND a.feed.user.id = :userId
+          AND a.filtered = false
           AND NOT EXISTS (
               SELECT 1 FROM ArticleUserState s
               WHERE s.article.id = a.id
@@ -168,6 +210,7 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
         SELECT a.id FROM Article a
         WHERE a.feed.category.id = :categoryId
           AND a.feed.user.id = :userId
+          AND a.filtered = false
           AND NOT EXISTS (
               SELECT 1 FROM ArticleUserState s
               WHERE s.article.id = a.id
@@ -176,6 +219,31 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
           )
     """)
     java.util.List<Long> findUnreadArticleIdsByCategoryIdAndUserId(@Param("categoryId") Long categoryId, @Param("userId") Long userId);
+
+    @Query("""
+        SELECT a.id AS id, a.title AS title, a.filtered AS filtered
+        FROM Article a
+        WHERE a.feed.id = :feedId
+          AND a.feed.user.id = :userId
+          AND (
+              a.filtered = true
+              OR NOT EXISTS (
+                  SELECT 1 FROM ArticleUserState s
+                  WHERE s.article.id = a.id
+                    AND s.user.id = :userId
+                    AND s.isRead = true
+              )
+          )
+    """)
+    java.util.List<ArticleTitleStateProjection> findUnreadOrFilteredTitlesByFeedIdAndUserId(
+            @Param("feedId") Long feedId,
+            @Param("userId") Long userId);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE Article a SET a.filtered = :filtered WHERE a.id IN :ids AND a.feed.id = :feedId")
+    int updateFilteredByIds(@Param("feedId") Long feedId,
+                            @Param("ids") Collection<Long> ids,
+                            @Param("filtered") boolean filtered);
 
     boolean existsByFeedIdAndGuid(Long feedId, String guid);
 

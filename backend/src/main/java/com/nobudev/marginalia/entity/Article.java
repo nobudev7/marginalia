@@ -8,7 +8,9 @@ import java.time.LocalDateTime;
     name = "articles",
     indexes = {
         @Index(name = "idx_articles_feed_pub", columnList = "feed_id, published_at DESC"),
-        @Index(name = "idx_articles_published", columnList = "published_at DESC")
+        @Index(name = "idx_articles_feed_filtered_pub", columnList = "feed_id, is_filtered, published_at DESC"),
+        @Index(name = "idx_articles_published", columnList = "published_at DESC"),
+        @Index(name = "idx_articles_filtered_pub", columnList = "is_filtered, published_at DESC")
     }
 )
 public class Article {
@@ -44,6 +46,9 @@ public class Article {
 
     @Column(name = "published_at", nullable = false)
     private LocalDateTime publishedAt;
+
+    @Column(name = "is_filtered", nullable = false)
+    private boolean filtered = false;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -146,6 +151,14 @@ public class Article {
 
     public void setPublishedAt(LocalDateTime publishedAt) {
         this.publishedAt = publishedAt;
+    }
+
+    public boolean isFiltered() {
+        return filtered;
+    }
+
+    public void setFiltered(boolean filtered) {
+        this.filtered = filtered;
     }
 
     public LocalDateTime getCreatedAt() {
