@@ -535,26 +535,7 @@ export function ArticleStream({
 
           {/* Pagination & Load More Footer */}
           <div className="pt-6 pb-12 flex flex-col items-center justify-center space-y-3">
-            {hasMore ? (
-              <button
-                type="button"
-                onClick={loadMore}
-                disabled={loadingMore}
-                className="px-5 py-2.5 rounded-xl border border-paper-300 hover:border-paper-400 bg-paper-50 hover:bg-paper-200/70 text-ink-800 font-medium text-xs transition-colors shadow-2xs flex items-center space-x-2 disabled:opacity-50 cursor-pointer"
-              >
-                {loadingMore ? (
-                  <>
-                    <RotateCw className="w-3.5 h-3.5 animate-spin text-amberAccent-700" />
-                    <span>Loading more dispatches...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Load More Articles</span>
-                    <ChevronDown className="w-3.5 h-3.5 text-ink-500" />
-                  </>
-                )}
-              </button>
-            ) : (
+            {!hasMore && (
               <div className="text-center">
                 <span className="text-paper-400 text-sm">❧</span>
                 <p className="text-xs text-ink-400 font-serif italic mt-1">
@@ -562,6 +543,40 @@ export function ArticleStream({
                 </p>
               </div>
             )}
+
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              {hasMore && (
+                <button
+                  type="button"
+                  onClick={loadMore}
+                  disabled={loadingMore}
+                  className="px-5 py-2.5 rounded-xl border border-paper-300 hover:border-paper-400 bg-paper-50 hover:bg-paper-200/70 text-ink-800 font-medium text-xs transition-colors shadow-2xs flex items-center space-x-2 disabled:opacity-50 cursor-pointer"
+                >
+                  {loadingMore ? (
+                    <>
+                      <RotateCw className="w-3.5 h-3.5 animate-spin text-amberAccent-700" />
+                      <span>Loading more dispatches...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Load More Articles</span>
+                      <ChevronDown className="w-3.5 h-3.5 text-ink-500" />
+                    </>
+                  )}
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={markAllAsRead}
+                disabled={loading || (headerInfo.unreadCount === 0 && unreadInStream === 0)}
+                className="px-5 py-2.5 rounded-xl border border-paper-300 hover:border-paper-400 bg-paper-50 hover:bg-paper-200/70 text-ink-800 font-medium text-xs transition-colors shadow-2xs flex items-center space-x-2 disabled:opacity-40 disabled:hover:bg-paper-50 cursor-pointer disabled:cursor-not-allowed"
+                title="Mark all articles in view as read"
+              >
+                <CheckCheck className="w-4 h-4 text-emerald-700" />
+                <span>Mark All Read</span>
+              </button>
+            </div>
 
             <p className="text-[11px] font-mono text-ink-400">
               Showing {articles.length} of {totalElements} articles
