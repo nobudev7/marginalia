@@ -717,8 +717,7 @@ export function ArticleStream({
                       }
                     }}
                     placeholder="e.g. [PR], Sponsored, Advertisement"
-                    autoFocus
-                    className="flex-1 px-3.5 py-2 bg-paper-50 border border-paper-300 rounded-xl text-xs text-ink-900 focus:outline-none focus:ring-2 focus:ring-amberAccent-700/20 focus:border-amberAccent-700"
+                    className="flex-1 px-3.5 py-2 bg-paper-50 border border-paper-300 rounded-xl text-base sm:text-xs text-ink-900 focus:outline-none focus:ring-2 focus:ring-amberAccent-700/20 focus:border-amberAccent-700"
                   />
                   <button
                     type="button"
