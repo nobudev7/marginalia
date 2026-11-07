@@ -2,6 +2,7 @@ package com.nobudev.marginalia.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 
@@ -12,6 +13,7 @@ import java.time.Duration;
 public class RestClientConfig {
 
     @Bean
+    @Primary
     public RestClient restClient() {
         HttpClient httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(15))
@@ -27,6 +29,25 @@ public class RestClientConfig {
                         "Marginalia/1.0 (RSS Reader; +https://github.com/nobudev7/marginalia)")
                 .defaultHeader("Accept",
                         "application/rss+xml, application/atom+xml, application/xml, text/xml, */*")
+                .build();
+    }
+
+    @Bean("openGraphRestClient")
+    public RestClient openGraphRestClient() {
+        HttpClient httpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(4))
+                .followRedirects(HttpClient.Redirect.NEVER)
+                .build();
+
+        JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
+        requestFactory.setReadTimeout(Duration.ofSeconds(5));
+
+        return RestClient.builder()
+                .requestFactory(requestFactory)
+                .defaultHeader("User-Agent",
+                        "Marginalia/1.0 (RSS Reader; +https://github.com/nobudev7/marginalia)")
+                .defaultHeader("Accept",
+                        "text/html, application/xhtml+xml;q=0.9, */*;q=0.8")
                 .build();
     }
 }

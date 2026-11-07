@@ -79,6 +79,8 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
 
     Optional<Article> findByFeedIdAndGuid(Long feedId, String guid);
 
+    java.util.List<Article> findTop20ByFeedIdAndImageUrlIsNullAndFilteredFalseOrderByPublishedAtDesc(Long feedId);
+
     @EntityGraph(attributePaths = {"feed"})
     Page<Article> findByFeedIdAndFeedUserIdOrderByPublishedAtDesc(Long feedId, Long userId, Pageable pageable);
 
