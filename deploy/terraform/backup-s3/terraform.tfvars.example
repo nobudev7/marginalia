@@ -1,0 +1,26 @@
+# ==============================================================================
+# Marginalia — S3 Off-Site Backup Storage Configuration Template
+# Copy this file to "terraform.tfvars" and customize:
+#   cp terraform.tfvars.example terraform.tfvars
+#
+# DO NOT commit "terraform.tfvars" to version control.
+# ==============================================================================
+
+aws_region  = "us-east-1"
+name_prefix = "marginalia"
+
+# Explicit bucket name (must be globally unique across AWS).
+# Leave null to auto-generate using s3_bucket_prefix:
+# s3_bucket_name = "my-unique-marginalia-backups"
+s3_bucket_prefix = "marginalia-backup-"
+
+# Automatically delete archives older than N days (0 to disable):
+s3_backup_retention_days = 90
+
+# Create a dedicated least-privilege IAM user + access key for deploy/backup.sh:
+create_s3_backup_iam_user = false
+
+tags = {
+  Environment = "production"
+  Application = "marginalia"
+}

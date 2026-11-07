@@ -29,7 +29,7 @@ Marginalia is designed to provide a clean, personal reading experience:
 * **Frontend**: React (TypeScript, Vite), Tailwind CSS, Lucide Icons, `vite-plugin-pwa`.
 * **Backend**: Java 25 LTS, Spring Boot 4.1.x, Spring Data JPA, Spring Security (OAuth2), ROME Tools (RSS/Atom parsing).
 * **Database**: MySQL 8.x with Flyway database migrations.
-* **Deployment**: AWS Lightsail Linux instance running Docker Compose + Caddy (automated Let's Encrypt HTTPS).
+* **Deployment**: Single-node Docker Compose + Caddy (automated Let's Encrypt HTTPS) on **Oracle Cloud (OCI)** (`$0/mo` Always Free ARM or Paid) or **AWS Lightsail**.
 
 ### Key Features
 1. **Reader Interface**: Collapsible sidebar with drag-and-drop editable categories and feeds, live unread badges, stream list/card view, and reading drawer.
@@ -69,17 +69,18 @@ For detailed IDE configurations and security posture rationale, see the [Local D
 
 ---
 
-## Production Deployment (AWS Lightsail)
+## Production Deployment (Oracle Cloud or AWS Lightsail)
 
-Marginalia is designed for single-node cloud deployment via AWS Lightsail ($7/mo `micro_3_0` plan with 2 GB swap), using Docker Compose and Caddy for automatic Let's Encrypt TLS:
+Marginalia supports modular single-node cloud deployment on **Oracle Cloud Infrastructure (OCI)** (`$0/mo` Always Free `VM.Standard.A1.Flex` ARM or Paid shapes) or **AWS Lightsail** (~$7/mo `micro_3_0`), using Docker Compose and Caddy for automatic Let's Encrypt TLS:
 
-1. **Provision Infrastructure via Terraform**:
+1. **Provision Infrastructure via Terraform** (see [`deploy/terraform/README.md`](deploy/terraform/README.md)):
    ```bash
-   cd deploy/terraform
+   # Choose your compute provider: deploy/terraform/oci OR deploy/terraform/aws-lightsail
+   cd deploy/terraform/oci
    cp terraform.tfvars.example terraform.tfvars
-   # Configure your SSH key path, domain name, and optional S3/Route 53 toggles
    terraform init && terraform apply
    ```
+   *(Optional standalone stacks in `deploy/terraform/dns-route53/` and `deploy/terraform/backup-s3/` automate Route 53 DNS routing and encrypted S3 off-site backups independently of compute.)*
 2. **Configure & Launch on Host**:
    SSH into the instance, configure production secrets in `deploy/.env`, and launch containers:
    ```bash
@@ -94,22 +95,22 @@ Marginalia is designed for single-node cloud deployment via AWS Lightsail ($7/mo
    sudo systemctl enable --now marginalia-backup.timer
    ```
 
-For complete step-by-step instructions, Route 53 subdomain configuration, and disaster recovery procedures, see the [Production Deployment Guide](docs/deployment-guide.md).
+For complete step-by-step instructions, DNS routing, and disaster recovery procedures, see the [Production Deployment Guide](docs/deployment-guide.md).
 
 ---
 
 ## Documentation
 
-* [Production Deployment Guide](docs/deployment-guide.md) — Complete operations runbook for AWS Lightsail, Terraform, and Caddy TLS.
+* [Production Deployment Guide](docs/deployment-guide.md) — Complete operations runbook for Oracle Cloud (OCI), AWS Lightsail, modular Terraform stacks, and Caddy TLS.
 * [Production Orchestration Guide](docs/production-orchestration-verification.md) — Docker Compose architecture, MySQL memory tuning, and cascading healthchecks.
 * [Backup & Disaster Recovery Guide](docs/backup-restore-verification.md) — Hot backup script, systemd timer / cron scheduling, and restore verification runbook.
 * [Reverse Proxy & TLS Guide](docs/reverse-proxy-tls-verification.md) — Caddy configuration, ACME certificate provisioning, and HTTP security headers.
 * [OAuth2 Setup Guide](docs/oauth2-setup-guide.md) — Step-by-step Google and GitHub OAuth2 configuration.
 * [Local Development Guide](docs/local-development-guide.md) — Activating the `dev` profile, safe defaults, and testing dev-login.
 * [Email Whitelist Administration Guide](docs/whitelist-admin-guide.md) — Managing access, safety measures, and admin REST endpoints.
-* [Future Expansion to Public Service (Path B)](docs/future-expansion-public-service.md) — Technical migration plan for global feed deduplication and multi-user scaling.
+* [Future Expansion to Public Service (Path B)](docs/notes/future-expansion-public-service.md) — Technical migration plan for global feed deduplication and multi-user scaling.
 * [Changelog](CHANGELOG.md) — Release history and commit summaries.
-* [Development Log](docs/dev-log.md) — Detailed changelog, architectural decisions, and verification records.
+* [Development Log](docs/notes/dev-log.md) — Detailed changelog, architectural decisions, and verification records.
 
 ---
 

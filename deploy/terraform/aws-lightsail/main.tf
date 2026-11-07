@@ -1,5 +1,5 @@
 # ==============================================================================
-# Marginalia — Core Lightsail Compute & Networking (Step 5.6.1)
+# Marginalia — AWS Lightsail Compute & Networking Stack
 #
 # Provisions:
 #   - SSH key pair (imported from a local public key)
@@ -7,8 +7,8 @@
 #   - Static public IPv4 address attached to the instance
 #   - Public firewall restricted to SSH (22), HTTP (80), HTTPS (443 TCP/UDP)
 #
-# Optional resources (S3 backup bucket, Route 53 record) live in separate files
-# and are disabled by default.
+# Optional DNS routing (../dns-route53) and off-site S3 backup storage
+# (../backup-s3) live in separate standalone stacks with independent lifecycles.
 # ==============================================================================
 
 terraform {

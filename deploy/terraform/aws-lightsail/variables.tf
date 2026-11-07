@@ -1,5 +1,5 @@
 # ==============================================================================
-# Marginalia — Input Variables (Core Compute & Networking)
+# Marginalia — AWS Lightsail Input Variables (Compute & Networking)
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
@@ -30,7 +30,6 @@ variable "aws_region" {
     error_message = "AWS Lightsail is not supported in region \"${var.aws_region}\". In the US, choose \"us-west-2\" (Oregon), \"us-east-1\" (N. Virginia), or \"us-east-2\" (Ohio)."
   }
 }
-
 
 variable "availability_zone" {
   description = "Lightsail availability zone. Defaults to \"<aws_region>a\" when null."
@@ -127,87 +126,3 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
-
-# ------------------------------------------------------------------------------
-# Optional S3 Backup Storage (Step 5.6.2)
-# ------------------------------------------------------------------------------
-variable "enable_s3_backup_bucket" {
-  description = "Whether to provision a dedicated AWS S3 bucket for off-site database backups."
-  type        = bool
-  default     = false
-}
-
-variable "s3_bucket_name" {
-  description = "Explicit name for the S3 backup bucket. If null and enable_s3_backup_bucket is true, s3_bucket_prefix is used."
-  type        = string
-  default     = null
-}
-
-variable "s3_bucket_prefix" {
-  description = "Prefix for the S3 backup bucket name if s3_bucket_name is not specified."
-  type        = string
-  default     = "marginalia-backup-"
-}
-
-variable "s3_backup_retention_days" {
-  description = "Number of days after which backup archives in S3 are automatically deleted (0 disables lifecycle expiration)."
-  type        = number
-  default     = 90
-
-  validation {
-    condition     = var.s3_backup_retention_days >= 0
-    error_message = "s3_backup_retention_days must be 0 or a positive integer."
-  }
-}
-
-variable "s3_force_destroy" {
-  description = "Allow destroying the S3 bucket even if it contains objects. Keep false for production safety."
-  type        = bool
-  default     = false
-}
-
-variable "create_s3_backup_iam_user" {
-  description = "Whether to create a dedicated IAM user and policy with restricted access to the S3 backup bucket."
-  type        = bool
-  default     = false
-}
-
-# ------------------------------------------------------------------------------
-# Optional Route 53 Subdomain DNS Management (Step 5.6.3)
-# ------------------------------------------------------------------------------
-variable "manage_route53_record" {
-  description = "Whether to automate Route 53 DNS A-record creation for the application subdomain."
-  type        = bool
-  default     = false
-}
-
-variable "subdomain_name" {
-  description = "Fully qualified domain name (e.g., 'reader.example.com') or subdomain prefix for the Marginalia application."
-  type        = string
-  default     = null
-}
-
-variable "route53_zone_id" {
-  description = "Target Route 53 Hosted Zone ID (e.g., 'Z1234567890ABC'). Specify either route53_zone_id or route53_zone_name when manage_route53_record is true."
-  type        = string
-  default     = null
-}
-
-variable "route53_zone_name" {
-  description = "Domain name of the existing Route 53 hosted zone (e.g., 'example.com'). Used to look up zone_id if route53_zone_id is omitted."
-  type        = string
-  default     = null
-}
-
-variable "route53_ttl" {
-  description = "TTL in seconds for the Route 53 DNS A-record."
-  type        = number
-  default     = 300
-
-  validation {
-    condition     = var.route53_ttl >= 60 && var.route53_ttl <= 86400
-    error_message = "route53_ttl must be between 60 and 86400 seconds."
-  }
-}
-
-

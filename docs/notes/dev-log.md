@@ -7,7 +7,7 @@ This document serves as the project diary, recording dated verification results,
 ## 2026-09-13 — Phase 1: Initial Scaffolding & Database Verification
 
 ### Scope & Goals
-* Scaffold the repository foundation with updated `.gitignore` and `README.md`.
+* Scaffold the repository foundation with updated `../../.gitignore` and `README.md`.
 * Initialize backend with Java 25 LTS and Spring Boot 4.1.1.
 * Create initial database schema with Flyway (`V1__initial_schema.sql`).
 * Implement JPA entities and Spring Data repositories for `users`, `categories`, `feeds`, `articles`, and `article_user_state`.
@@ -51,7 +51,7 @@ docker exec marginalia-mysql-dev mysql -u marginalia_user -pmarginalia_pass marg
 ```
 
 ### Technical Notes & Decisions
-* **MySQL 8.4 LTS Compatibility**: Removed `--default-authentication-plugin=caching_sha2_password` from `compose.dev.yaml` as MySQL 8.4 made `caching_sha2_password` the mandatory default and removed the legacy configuration flag.
+* **MySQL 8.4 LTS Compatibility**: Removed `--default-authentication-plugin=caching_sha2_password` from `../../compose.dev.yaml` as MySQL 8.4 made `caching_sha2_password` the mandatory default and removed the legacy configuration flag.
 * **Spring Boot 4 / Flyway Module**: Used `spring-boot-starter-flyway` which bundles Spring Boot 4's new `spring-boot-flyway` autoconfiguration module alongside `flyway-mysql`.
 * **Standardized GUID Key**: Set article `guid` to `VARCHAR(255)` so composite unique constraint `(feed_id, guid)` works cleanly without requiring length prefixes.
 * **Java 25 Virtual Threads**: Enabled `spring.threads.virtual.enabled: true` in `application.yml` for future feed crawler tasks.
@@ -130,7 +130,7 @@ docker exec marginalia-mysql-dev mysql -u marginalia_user -pmarginalia_pass marg
 ## 2026-09-18 — Phase 4 (Step 4.1): Frontend Scaffolding, Design Tokens & Development Proxy
 
 ### Scope & Goals
-* Scaffold Vite React (TypeScript) project in `frontend/`.
+* Scaffold Vite React (TypeScript) project in `../../frontend`.
 * Configure Tailwind CSS with `@tailwindcss/typography`, PostCSS, Autoprefixer, Lucide icons, `clsx`, and `tailwind-merge`.
 * Establish warm editorial palette (`paper`, `ink`, `amberAccent`) and editorial typography (`Newsreader` serif, `Inter` sans).
 * Configure Vite development reverse-proxy routing `/api`, `/oauth2`, and `/logout` requests to the Spring Boot backend on port 8080.
@@ -347,12 +347,12 @@ curl -s http://localhost:5173/api/auth/status
 ## 2026-09-19 — Security Remediation (Item 1): Safe Defaults for Auth & Dev-Mode
 
 ### Scope & Goals
-* Enforce "Secure by Default / Fail-Closed" posture in `backend/src/main/resources/application.yml`:
+* Enforce "Secure by Default / Fail-Closed" posture in `../../backend/src/main/resources/application.yml`:
   * Change `app.auth.dev-mode` default from `true` to `false` (`${DEV_MODE:false}`).
   * Change `app.auth.whitelist-emails` default from `test@example.com` to empty string (`${AUTH_WHITELIST_EMAILS:}`).
-* Create `backend/src/main/resources/application-dev.yml` to allow local developer environments to explicitly enable dev-mode and test whitelist via the `dev` Spring profile.
-* Add integration test `backend/src/test/java/com/nobudev/marginalia/controller/DevModeDisabledSecurityTest.java` asserting `/api/auth/dev-login` returns `404 Not Found` when dev-mode is disabled.
-* Update `docs/oauth2-setup-guide.md` production safeguard documentation.
+* Create `../../backend/src/main/resources/application-dev.yml` to allow local developer environments to explicitly enable dev-mode and test whitelist via the `dev` Spring profile.
+* Add integration test `../../backend/src/test/java/com/nobudev/marginalia/controller/DevModeDisabledSecurityTest.java` asserting `/api/auth/dev-login` returns `404 Not Found` when dev-mode is disabled.
+* Update `../oauth2-setup-guide.md` production safeguard documentation.
 
 ### Verification Checklist
 - [x] Safe default verification: `DevModeDisabledSecurityTest` verifies both `GET` and `POST` to `/api/auth/dev-login` return 404 when `dev-mode` is `false`.
@@ -364,14 +364,14 @@ curl -s http://localhost:5173/api/auth/status
 ## 2026-09-19 — Security Remediation (Item 2): Fail-Closed Identity Resolution in UserService
 
 ### Scope & Goals
-* Eliminate unauthenticated identity assumption fallback in `backend/src/main/java/com/nobudev/marginalia/service/UserService.java`:
+* Eliminate unauthenticated identity assumption fallback in `../../backend/src/main/java/com/nobudev/marginalia/service/UserService.java`:
   * Remove fallback that previously returned `userRepository.findAll().stream().findFirst()` when no authenticated context existed.
   * Throw `AccessDeniedException("No authenticated user found in security context")` if `getCurrentUser()` is called outside an authenticated context.
-* Add unit tests in `backend/src/test/java/com/nobudev/marginalia/service/UserServiceTest.java` verifying:
+* Add unit tests in `../../backend/src/test/java/com/nobudev/marginalia/service/UserServiceTest.java` verifying:
   * Valid authentication returns the user.
   * Unauthenticated context throws `AccessDeniedException`.
   * Anonymous token throws `AccessDeniedException`.
-* Update direct-invocation test cases in `backend/src/test/java/com/nobudev/marginalia/controller/ApiControllerTest.java` and `NonTransactionalImportTest.java` to explicitly establish and tear down authenticated `SecurityContext`.
+* Update direct-invocation test cases in `../../backend/src/test/java/com/nobudev/marginalia/controller/ApiControllerTest.java` and `NonTransactionalImportTest.java` to explicitly establish and tear down authenticated `SecurityContext`.
 
 ### Verification Checklist
 - [x] Fail-closed verification: `UserServiceTest` confirms `AccessDeniedException` on unauthenticated requests.
@@ -389,7 +389,7 @@ curl -s http://localhost:5173/api/auth/status
   * Update `CategoryService.updateCategory` and `deleteCategory` to scope lookups by `userId`.
   * Update `FeedController` and `CategoryController` to retrieve authenticated `user.getId()` and pass it to all service calls.
   * Add feed ownership verification in `FeedController.refreshFeed` to prevent unauthorized users from triggering crawler requests on feeds they do not own.
-* Add integration test `backend/src/test/java/com/nobudev/marginalia/service/FeedAndCategoryOwnershipTest.java` verifying cross-user isolation:
+* Add integration test `../../backend/src/test/java/com/nobudev/marginalia/service/FeedAndCategoryOwnershipTest.java` verifying cross-user isolation:
   * User A cannot read, update, or delete User B's feeds.
   * User A cannot update or delete User B's categories.
   * User A cannot assign their feed to User B's category.
@@ -404,15 +404,15 @@ curl -s http://localhost:5173/api/auth/status
 
 ### Scope & Goals
 * Enforce strict user ownership scoping across article retrieval and state modification to eliminate IDOR vulnerabilities:
-  * In `backend/src/main/java/com/nobudev/marginalia/repository/ArticleRepository.java`:
+  * In `../../backend/src/main/java/com/nobudev/marginalia/repository/ArticleRepository.java`:
     * Add `findByIdAndFeedUserId(Long id, Long userId)`.
     * Scope `findByFeedIdAndFeedUserIdOrderByPublishedAtDesc(Long feedId, Long userId, Pageable pageable)`.
     * Scope `findByFeedCategoryIdAndFeedUserIdOrderByPublishedAtDesc(Long categoryId, Long userId, Pageable pageable)`.
-  * In `backend/src/main/java/com/nobudev/marginalia/service/ArticleService.java`:
+  * In `../../backend/src/main/java/com/nobudev/marginalia/service/ArticleService.java`:
     * Update `getArticlesByFeed` and `getArticlesByCategory` to pass authenticated user ID.
     * Update `getArticle` to lookup via `findByIdAndFeedUserId(id, user.getId())`, throwing 404/IllegalArgumentException for unowned articles.
     * Update `getOrCreateState` to lookup the underlying article via `findByIdAndFeedUserId(articleId, user.getId())`, ensuring users cannot mark as read or bookmark articles from another user's feeds.
-* Add integration test `backend/src/test/java/com/nobudev/marginalia/service/ArticleOwnershipTest.java` verifying cross-user isolation:
+* Add integration test `../../backend/src/test/java/com/nobudev/marginalia/service/ArticleOwnershipTest.java` verifying cross-user isolation:
   * User A cannot read User B's feed articles or category articles.
   * User A cannot fetch User B's single article by ID.
   * User A cannot mark User B's article as read.
@@ -427,7 +427,7 @@ curl -s http://localhost:5173/api/auth/status
 ## 2026-09-20 — Security Remediation (Item 5): SSRF Protection in Feed Crawler & Subscription Pipeline
 
 ### Scope & Goals
-* Implement defensive Server-Side Request Forgery (SSRF) validation in `backend/src/main/java/com/nobudev/marginalia/util/UrlSafetyValidator.java`:
+* Implement defensive Server-Side Request Forgery (SSRF) validation in `../../backend/src/main/java/com/nobudev/marginalia/util/UrlSafetyValidator.java`:
   * Validate URL scheme strictly against `http` and `https` (rejecting `file://`, `ftp://`, `gopher://`, `javascript:`, etc.).
   * Resolve target hostname via `InetAddress.getAllByName(host)` and block access if any resolved IP address belongs to:
     * Loopback addresses (`127.0.0.0/8`, `::1`, `localhost`).
@@ -439,9 +439,9 @@ curl -s http://localhost:5173/api/auth/status
   * In `FeedCrawlerService.fetchFeed`: validate feed URL prior to opening HTTP connection.
   * In `OpmlService.importFeedOutline`: validate feed URL, gracefully skipping unsafe internal endpoints.
 * Add unit and integration tests:
-  * `backend/src/test/java/com/nobudev/marginalia/util/UrlSafetyValidatorTest.java`: test coverage across loopback, RFC 1918 private subnets, cloud metadata IPs, disallowed schemes, and IPv6 encodings.
-  * `backend/src/test/java/com/nobudev/marginalia/service/FeedServiceTransactionTest.java`: verify `addFeed` rejects SSRF attempts.
-  * `backend/src/test/java/com/nobudev/marginalia/service/FeedCrawlerServiceTest.java`: verify crawler marks feed as failed when hitting blocked IP.
+  * `../../backend/src/test/java/com/nobudev/marginalia/util/UrlSafetyValidatorTest.java`: test coverage across loopback, RFC 1918 private subnets, cloud metadata IPs, disallowed schemes, and IPv6 encodings.
+  * `../../backend/src/test/java/com/nobudev/marginalia/service/FeedServiceTransactionTest.java`: verify `addFeed` rejects SSRF attempts.
+  * `../../backend/src/test/java/com/nobudev/marginalia/service/FeedCrawlerServiceTest.java`: verify crawler marks feed as failed when hitting blocked IP.
 * Note on validation `FeedCrawlerService.fetchFeed`
   * Protection Against DNS Rebinding - Addresses Time-of-Check to Time-of-Use vulnerability in case the attacker changes DNS record to point to a different IP address after the feed is added.
   * Guarding Non-API Ingestion Paths and Legacy Records - although there's no route for now, an admin can add a feed manually via MySQL, for example.
@@ -459,16 +459,16 @@ curl -s http://localhost:5173/api/auth/status
 
 ### Scope & Goals
 * Enforce `Secure` cookie flag by default to protect session tokens against unencrypted interception:
-  * In `backend/src/main/java/com/nobudev/marginalia/config/SessionConfig.java`: default `secureCookie` to `true` (`${app.auth.session.secure-cookie:true}`).
-  * In `backend/src/main/resources/application.yml`: expose `app.auth.session.secure-cookie: ${SECURE_COOKIE:true}` with safe production default.
-  * In `backend/src/main/resources/application-dev.yml` and `backend/src/test/resources/application.yml`: explicitly set `secure-cookie: false` for plain HTTP local development and automated testing.
+  * In `../../backend/src/main/java/com/nobudev/marginalia/config/SessionConfig.java`: default `secureCookie` to `true` (`${app.auth.session.secure-cookie:true}`).
+  * In `../../backend/src/main/resources/application.yml`: expose `app.auth.session.secure-cookie: ${SECURE_COOKIE:true}` with safe production default.
+  * In `../../backend/src/main/resources/application-dev.yml` and `backend/src/test/resources/application.yml`: explicitly set `secure-cookie: false` for plain HTTP local development and automated testing.
 * Restrict dev-login and eliminate session credential leakage:
-  * In `backend/src/main/java/com/nobudev/marginalia/controller/AuthController.java`: restrict `/api/auth/dev-login` to `@PostMapping` only, rejecting `GET` requests with `405 Method Not Allowed`. This mitigates Cross-Site Login Attacks (where third-party sites trigger state-changing GET requests via `<img>` tags or browser prefetching to fixate or replace the developer's active session).
+  * In `../../backend/src/main/java/com/nobudev/marginalia/controller/AuthController.java`: restrict `/api/auth/dev-login` to `@PostMapping` only, rejecting `GET` requests with `405 Method Not Allowed`. This mitigates Cross-Site Login Attacks (where third-party sites trigger state-changing GET requests via `<img>` tags or browser prefetching to fixate or replace the developer's active session).
   * Remove `sessionId` from `devLogin` JSON response body; session association is maintained exclusively through HTTP-only cookies, preventing script-based token extraction.
-* Update documentation (`docs/oauth2-setup-guide.md`, `docs/local-development-guide.md`) to reflect `POST`-only usage.
+* Update documentation (`../oauth2-setup-guide.md`, `docs/local-development-guide.md`) to reflect `POST`-only usage.
 * Add unit and integration tests:
-  * `backend/src/test/java/com/nobudev/marginalia/controller/AuthControllerSecurityTest.java`: assert `sessionId` is not present in response and verify `GET /api/auth/dev-login` returns 405.
-  * `backend/src/test/java/com/nobudev/marginalia/controller/DevModeDisabledSecurityTest.java`: verify `GET` returns 405 and `POST` returns 404 when `dev-mode` is disabled.
+  * `../../backend/src/test/java/com/nobudev/marginalia/controller/AuthControllerSecurityTest.java`: assert `sessionId` is not present in response and verify `GET /api/auth/dev-login` returns 405.
+  * `../../backend/src/test/java/com/nobudev/marginalia/controller/DevModeDisabledSecurityTest.java`: verify `GET` returns 405 and `POST` returns 404 when `dev-mode` is disabled.
 
 ### Verification Checklist
 - [x] Secure cookie verification: Session cookie defaults to `Secure` in production configuration.
@@ -482,10 +482,10 @@ curl -s http://localhost:5173/api/auth/status
 
 ### Scope & Goals
 * Prevent XML External Entity (XXE) vulnerabilities in RSS/Atom parsing:
-  * In `backend/src/main/java/com/nobudev/marginalia/service/FeedCrawlerService.java`: configure ROME's `SyndFeedInput` with `setAllowDoctypes(false)` (matching the secure configuration in `OpmlService`).
+  * In `../../backend/src/main/java/com/nobudev/marginalia/service/FeedCrawlerService.java`: configure ROME's `SyndFeedInput` with `setAllowDoctypes(false)` (matching the secure configuration in `OpmlService`).
   * RSS and Atom specifications do not require document type declarations; disabling DOCTYPE support eliminates entity expansion attacks, local file disclosures (`SYSTEM "file:///..."`), and XML entity expansion denial-of-service vectors.
 * Add integration test:
-  * In `backend/src/test/java/com/nobudev/marginalia/service/FeedCrawlerServiceTest.java`: add `testCrawlerRejectsDoctypesAndXxe` to verify that feeds containing `<!DOCTYPE ... [ <!ENTITY ... > ]>` fail gracefully with error logged and zero articles ingested.
+  * In `../../backend/src/test/java/com/nobudev/marginalia/service/FeedCrawlerServiceTest.java`: add `testCrawlerRejectsDoctypesAndXxe` to verify that feeds containing `<!DOCTYPE ... [ <!ENTITY ... > ]>` fail gracefully with error logged and zero articles ingested.
 
 ### Verification Checklist
 - [x] XXE prevention verification: `FeedCrawlerServiceTest` verifies rejection of DOCTYPE declarations in crawled feeds.
@@ -493,10 +493,10 @@ curl -s http://localhost:5173/api/auth/status
 
 ---
 
-## 2026-09-20 — Security Remediation (Item 8): Infrastructure Secret & Terraform Exclusions in `.gitignore`
+## 2026-09-20 — Security Remediation (Item 8): Infrastructure Secret & Terraform Exclusions in `../../.gitignore`
 
 ### Scope & Goals
-* Harden `.gitignore` against accidental repository commits of cloud infrastructure states and secrets:
+* Harden `../../.gitignore` against accidental repository commits of cloud infrastructure states and secrets:
   * Ignore Terraform workspace artifacts: `**/.terraform/*`, `*.tfstate`, `*.tfstate.*`, `crash.log`.
   * Ignore Terraform variable definitions: `*.tfvars`, `*.tfvars.json`.
   * Ignore Terraform overrides: `override.tf`, `override.tf.json`, `*_override.tf`, `*_override.tf.json`.
@@ -512,16 +512,16 @@ curl -s http://localhost:5173/api/auth/status
 
 ### Scope & Goals
 * Add standard HTTP security headers to Spring Security filter chain:
-  * In `backend/src/main/java/com/nobudev/marginalia/config/SecurityConfig.java`:
+  * In `../../backend/src/main/java/com/nobudev/marginalia/config/SecurityConfig.java`:
     * `X-Frame-Options: DENY` (clickjacking prevention).
     * `X-Content-Type-Options: nosniff` (MIME sniffing prevention).
     * `Referrer-Policy: strict-origin-when-cross-origin` (referrer leakage prevention).
 * Sanitize unhandled exceptions across REST controllers:
-  * In `backend/src/main/java/com/nobudev/marginalia/controller/GlobalExceptionHandler.java`:
+  * In `../../backend/src/main/java/com/nobudev/marginalia/controller/GlobalExceptionHandler.java`:
     * Add catch-all `@ExceptionHandler(Exception.class)` that logs root causes internally via `log.error` while returning a generic `500 Internal Server Error` payload (`{"error": "An unexpected server error occurred"}`) to clients without stack traces.
     * Transparently rethrow Spring MVC standard exceptions (`HttpRequestMethodNotSupportedException`, `NoResourceFoundException`, `ErrorResponse`) to retain precise 405/404 HTTP status dispatching.
 * Add integration test:
-  * `backend/src/test/java/com/nobudev/marginalia/config/SecurityHeadersAndExceptionTest.java`: verify presence of all 3 security headers on HTTP responses and assert exception handler sanitizes unhandled errors.
+  * `../../backend/src/test/java/com/nobudev/marginalia/config/SecurityHeadersAndExceptionTest.java`: verify presence of all 3 security headers on HTTP responses and assert exception handler sanitizes unhandled errors.
 
 ### Verification Checklist
 - [x] Security headers verification: `SecurityHeadersAndExceptionTest` confirms `X-Frame-Options`, `X-Content-Type-Options`, and `Referrer-Policy` headers are active.
@@ -534,10 +534,10 @@ curl -s http://localhost:5173/api/auth/status
 
 ### Scope & Goals
 * Exclude development and testing dependencies from production runtime distribution:
-  * In `backend/pom.xml`: change `com.h2database:h2` dependency scope from `runtime` to `test`, ensuring the in-memory H2 database engine is never bundled inside the production application JAR, mitigating classpath gadget and RCE risks.
+  * In `../../backend/pom.xml`: change `com.h2database:h2` dependency scope from `runtime` to `test`, ensuring the in-memory H2 database engine is never bundled inside the production application JAR, mitigating classpath gadget and RCE risks.
 * Implement profile-based separation for MySQL datasource SSL enforcement:
-  * In `backend/src/main/resources/application.yml`: adopt a fail-closed, secure-by-default baseline where `useSSL` defaults to `true` (`${DB_USE_SSL:true}`) and `allowPublicKeyRetrieval` defaults to `false` (`${DB_ALLOW_PUBLIC_KEY:false}`). This ensures cloud and production deployments mandate TLS encryption and server identity verification by default.
-  * In `backend/src/main/resources/application-dev.yml`: explicitly configure `useSSL=false&allowPublicKeyRetrieval=true` under the `dev` profile to ensure frictionless local development with Docker containers without certificate setup.
+  * In `../../backend/src/main/resources/application.yml`: adopt a fail-closed, secure-by-default baseline where `useSSL` defaults to `true` (`${DB_USE_SSL:true}`) and `allowPublicKeyRetrieval` defaults to `false` (`${DB_ALLOW_PUBLIC_KEY:false}`). This ensures cloud and production deployments mandate TLS encryption and server identity verification by default.
+  * In `../../backend/src/main/resources/application-dev.yml`: explicitly configure `useSSL=false&allowPublicKeyRetrieval=true` under the `dev` profile to ensure frictionless local development with Docker containers without certificate setup.
 * Validate that all test suites continue executing cleanly in test scope.
 
 ### Verification Checklist
@@ -551,7 +551,7 @@ curl -s http://localhost:5173/api/auth/status
 ## 2026-09-26 — Phase 5: Backend Multi-Stage Containerization (Step 5.1)
 
 ### Scope & Goals
-* Implement multi-stage `backend/Dockerfile` targeting Java 25 LTS and Spring Boot 4:
+* Implement multi-stage `../../backend/Dockerfile` targeting Java 25 LTS and Spring Boot 4:
   * **Stage 1 (`builder`)**: Uses `maven:3-eclipse-temurin-25`. Copies `pom.xml` first to execute `mvn dependency:go-offline -B` for Docker layer caching, followed by source compilation (`mvn clean package -DskipTests -B`).
   * **Stage 2 (Runtime)**: Minimal `eclipse-temurin:25-jre` slim runtime (~430 MB total image size).
 * Implement container security hardening:
@@ -565,8 +565,8 @@ curl -s http://localhost:5173/api/auth/status
   * Use `exec java $JAVA_OPTS -jar /app/app.jar "$@"` so `SIGTERM` signals directly reach the JVM for orderly Spring Boot shutdown.
 * Add native container health monitoring:
   * Configure Docker `HEALTHCHECK` periodically querying the `/api/auth/status` public endpoint.
-* Create `backend/.dockerignore` to exclude build artifacts, IDE files, and git metadata from build contexts.
-* Document local verification steps and port conflict workarounds in `docs/backend-container-verification.md`.
+* Create `../../backend/.dockerignore` to exclude build artifacts, IDE files, and git metadata from build contexts.
+* Document local verification steps and port conflict workarounds in `../backend-container-verification.md`.
 
 ### Verification Checklist
 - [x] Multi-stage build verification: Built `marginalia-backend:test` with compact image footprint (430 MB).
@@ -575,20 +575,20 @@ curl -s http://localhost:5173/api/auth/status
 - [x] Application context initialization: Spring Boot started in 2.975s with Flyway schema validation.
 - [x] HTTP healthcheck verification: `curl -i http://localhost:8080/api/auth/status` returns HTTP 200 OK with security headers (`X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`).
 - [x] Docker native health check: Container state reported `healthy`.
-- [x] Documentation: Created `docs/backend-container-verification.md`.
+- [x] Documentation: Created `../backend-container-verification.md`.
 
 ---
 
 ## 2026-09-26 — Phase 5: Frontend Multi-Stage Containerization (Step 5.2)
 
 ### Scope & Goals
-* Implement multi-stage `frontend/Dockerfile` for React PWA production build:
+* Implement multi-stage `../../frontend/Dockerfile` for React PWA production build:
   * **Stage 1 (`builder`)**: Uses `node:22-alpine`. Copies `package.json` and `package-lock.json` first to leverage Docker layer caching, running `npm ci` followed by production build (`npm run build`). Generates minified JavaScript/CSS, PWA web manifest, and Workbox service worker (`dist/sw.js`).
   * **Stage 2 (Runtime)**: Minimal, hardened `caddy:2-alpine` static asset server (~61.5 MB total image footprint).
 * Implement container security hardening:
   * Create unprivileged system user `marginalia` (UID `1001`) with owned `/config/caddy`, `/data/caddy`, and `/usr/share/caddy` directories.
   * Enforce non-root execution (`USER marginalia`).
-* Configure static web server routing and caching (`frontend/Caddyfile`):
+* Configure static web server routing and caching (`../../frontend/Caddyfile`):
   * SPA route fallback (`try_files {path} /index.html`) to support client-side routing.
   * Standard security headers: `X-Content-Type-Options "nosniff"`, `X-Frame-Options "DENY"`, `Referrer-Policy "strict-origin-when-cross-origin"`.
   * Dynamic HTTP compression using `zstd` and `gzip`.
@@ -596,8 +596,8 @@ curl -s http://localhost:5173/api/auth/status
   * Zero-cache revalidation (`max-age=0, must-revalidate`) for PWA manifest (`/manifest.webmanifest`) and service worker (`/sw.js`) to guarantee prompt client updates.
 * Add native container health monitoring:
   * Docker `HEALTHCHECK` with `wget --no-verbose --tries=1 --spider http://localhost:80/ || exit 1`.
-* Create `frontend/.dockerignore` to exclude local `node_modules/`, `dist/`, and environment files from build contexts.
-* Document local verification steps in `docs/frontend-container-verification.md`.
+* Create `../../frontend/.dockerignore` to exclude local `node_modules/`, `dist/`, and environment files from build contexts.
+* Document local verification steps in `../frontend-container-verification.md`.
 
 ### Verification Checklist
 - [x] Multi-stage build verification: Built `marginalia-frontend:test` successfully with ultra-lightweight image footprint (61.5 MB).
@@ -608,14 +608,14 @@ curl -s http://localhost:5173/api/auth/status
 - [x] SPA route fallback: Verified non-existent routes (e.g. `/feeds/all`) return HTTP 200 with `index.html`.
 - [x] Compression verification: Verified `Content-Encoding: zstd` and `Content-Encoding: gzip` responses.
 - [x] Docker native health check: Container reported `healthy` status via Docker healthcheck.
-- [x] Documentation: Created `docs/frontend-container-verification.md`.
+- [x] Documentation: Created `../frontend-container-verification.md`.
 
 ---
 
 ## 2026-09-27 — Phase 5: Reverse Proxy & Automated TLS Configuration (Step 5.3)
 
 ### Scope & Goals
-* Implement production-grade `deploy/Caddyfile` for automated TLS termination, reverse proxy routing, and static file delivery:
+* Implement production-grade `../../deploy/Caddyfile` for automated TLS termination, reverse proxy routing, and static file delivery:
   * Automated TLS certificate issuance and renewal via Let's Encrypt with configurable `{$ACME_EMAIL}` and `{$DOMAIN_NAME}` environment variables.
   * Reverse proxy routing for backend endpoints (`/api/*`, `/oauth2/*`, `/login/*`, `/logout`) directed to `{$BACKEND_URL:backend:8080}` with automatic proxy header forwarding (`X-Forwarded-For`, `X-Forwarded-Proto`, `X-Forwarded-Host`).
   * Single Page Application (SPA) routing fallback (`try_files {path} /index.html`) ensuring seamless client-side routing.
@@ -629,12 +629,12 @@ curl -s http://localhost:5173/api/auth/status
   * Caching policy: 1-year immutable caching for `/assets/*` and immediate revalidation (`max-age=0, must-revalidate`) for PWA manifest and service worker.
   * Structured JSON access logging to `stdout` for container log ingestion.
 * Configure Spring Boot reverse proxy compatibility:
-  * In `backend/src/main/resources/application.yml`: configure `server.forward-headers-strategy: framework` so Spring Boot accurately reconstructs external HTTPS URLs and redirect URIs from reverse proxy headers.
+  * In `../../backend/src/main/resources/application.yml`: configure `server.forward-headers-strategy: framework` so Spring Boot accurately reconstructs external HTTPS URLs and redirect URIs from reverse proxy headers.
 * Validate Caddyfile syntax using Docker and verify runtime behaviors against local backend.
-* Create documentation in `docs/reverse-proxy-tls-verification.md`.
+* Create documentation in `../reverse-proxy-tls-verification.md`.
 
 ### Verification Checklist
-- [x] Syntax validation: Verified `deploy/Caddyfile` using `caddy validate` with zero warnings or errors.
+- [x] Syntax validation: Verified `../../deploy/Caddyfile` using `caddy validate` with zero warnings or errors.
 - [x] Security headers: Verified HSTS, Content-Security-Policy, X-Frame-Options, X-Content-Type-Options, and Referrer-Policy on root response.
 - [x] API reverse proxying: Verified `curl -i http://localhost:3001/api/auth/status` forwards through Caddy to backend and returns `{"authenticated":false}`.
 - [x] Authentication & session cookie forwarding: Verified `POST /api/auth/dev-login` issues valid `Set-Cookie: MARGINALIA_SESSION=...`.
@@ -642,55 +642,55 @@ curl -s http://localhost:5173/api/auth/status
 - [x] Dynamic compression: Verified `Content-Encoding: zstd` response.
 - [x] Structured JSON logging: Verified stdout log entries contain structured JSON with duration, size, and status.
 - [x] Backend test suite: Confirmed all 136 tests pass with `forward-headers-strategy: framework`.
-- [x] Documentation: Created `docs/reverse-proxy-tls-verification.md`.
+- [x] Documentation: Created `../reverse-proxy-tls-verification.md`.
 
 ---
 
 ## 2026-09-27 — Phase 5: Production Container Orchestration (Step 5.4)
 
 ### Scope & Goals
-* Implement single-command production Docker Compose orchestration (`deploy/compose.yaml`):
-  * **Caddy Service (`marginalia-caddy`)**: Builds from `frontend/Dockerfile` into production static asset server and TLS reverse proxy. Binds public ports `80`, `443` (TCP/UDP HTTP/3). Persists Let's Encrypt certificates across container lifecycles in `caddy_data` volume. Waits for backend healthcheck (`condition: service_healthy`).
-  * **Backend Service (`marginalia-backend`)**: Builds from `backend/Dockerfile` into unprivileged Java 25 runtime. Configured with production Spring profile, database connection parameters, OAuth2 secrets, and JVM memory ergonomics (`-XX:MaxRAMPercentage=75.0 -XX:+UseG1GC`). Isolated within private bridge network (`marginalia_network`) without exposing ports to public Internet. Waits for database healthcheck (`condition: service_healthy`).
-  * **Database Service (`marginalia-mysql`)**: Uses official `mysql:8.4` LTS image with custom memory tuning in `deploy/mysql.cnf` (`innodb_buffer_pool_size = 256M`). Data persisted in named volume `mysql_data`. Includes native container healthcheck via `mysqladmin ping`.
+* Implement single-command production Docker Compose orchestration (`../../deploy/compose.yaml`):
+  * **Caddy Service (`marginalia-caddy`)**: Builds from `../../frontend/Dockerfile` into production static asset server and TLS reverse proxy. Binds public ports `80`, `443` (TCP/UDP HTTP/3). Persists Let's Encrypt certificates across container lifecycles in `caddy_data` volume. Waits for backend healthcheck (`condition: service_healthy`).
+  * **Backend Service (`marginalia-backend`)**: Builds from `../../backend/Dockerfile` into unprivileged Java 25 runtime. Configured with production Spring profile, database connection parameters, OAuth2 secrets, and JVM memory ergonomics (`-XX:MaxRAMPercentage=75.0 -XX:+UseG1GC`). Isolated within private bridge network (`marginalia_network`) without exposing ports to public Internet. Waits for database healthcheck (`condition: service_healthy`).
+  * **Database Service (`marginalia-mysql`)**: Uses official `mysql:8.4` LTS image with custom memory tuning in `../../deploy/mysql.cnf` (`innodb_buffer_pool_size = 256M`). Data persisted in named volume `mysql_data`. Includes native container healthcheck via `mysqladmin ping`.
   * **Network Isolation**: All 3 services communicate over an isolated bridge network `marginalia_network`.
-* Create production MySQL configuration (`deploy/mysql.cnf`):
+* Create production MySQL configuration (`../../deploy/mysql.cnf`):
   * Configure UTF-8 full unicode (`utf8mb4` / `utf8mb4_unicode_ci`), buffer pool size (256M), redo log capacity (64M), and connection ceiling (50) optimized for 1 GB–2 GB Lightsail instances.
-* Create environment template (`deploy/.env.example`):
+* Create environment template (`../../deploy/.env.example`):
   * Document all configuration parameters: domain bindings, Let's Encrypt email, database credentials, OAuth2 secrets, whitelist emails, session security, and crawler tuning.
-* Fix directory ownership in `frontend/Dockerfile`:
+* Fix directory ownership in `../../frontend/Dockerfile`:
   * Ensure `/config` and `/data` are owned by `marginalia:marginalia` so Caddy can write ACME certificates to named volumes when running as an unprivileged user.
-* Document local verification and production runbook in `docs/production-orchestration-verification.md`.
+* Document local verification and production runbook in `../production-orchestration-verification.md`.
 
 ### Verification Checklist
 - [x] Compose configuration validation: `docker compose --env-file deploy/.env.example -f deploy/compose.yaml config` validated successfully with return code 0.
-- [x] MySQL configuration validation: `mysqld --validate-config` confirmed `deploy/mysql.cnf` syntax complies with MySQL 8.4 LTS.
+- [x] MySQL configuration validation: `mysqld --validate-config` confirmed `../../deploy/mysql.cnf` syntax complies with MySQL 8.4 LTS.
 - [x] Volume permissions fix: Verified unprivileged user `marginalia` can write to named volumes mounted at `/data` and `/config`.
 - [x] Secret isolation: Confirmed `.env.example` provides comprehensive template without leaking actual credentials.
 - [x] Cascading healthchecks: Verified service dependency graph (`caddy -> backend -> mysql`) via healthcheck conditions.
-- [x] Documentation: Created `docs/production-orchestration-verification.md`.
+- [x] Documentation: Created `../production-orchestration-verification.md`.
 
 ---
 
 ## 2026-09-28 — Phase 5: Automated Database Backup & Disaster Recovery (Step 5.5)
 
 ### Scope & Goals
-* Implement automated hot backup script (`deploy/backup.sh`):
+* Implement automated hot backup script (`../../deploy/backup.sh`):
   * Non-blocking `mysqldump` utilizing `--single-transaction`, `--quick`, `--no-tablespaces`, `--routines`, `--triggers`, `--events`, `--set-gtid-purged=OFF`, and `--default-character-set=utf8mb4`.
   * Stream compressed dumps directly through `gzip -9` into `deploy/backups/marginalia_${DB_NAME}_${TIMESTAMP}.sql.gz`.
   * Validate archive integrity via `gzip -t` immediately following dump creation.
   * Restrict backup permissions to owner-only (`chmod 600`).
   * Implement local backup retention rotation pruning backups older than 7 days (`find -mtime +7 -delete`).
   * Add optional off-site AWS S3 bucket synchronization (`aws s3 cp --sse AES256`).
-* Implement disaster recovery restoration script (`deploy/restore.sh`):
+* Implement disaster recovery restoration script (`../../deploy/restore.sh`):
   * Support compressed (`.sql.gz`) and uncompressed (`.sql`) database dumps.
   * Verify archive integrity with `gzip -t` prior to execution.
   * Interactive safety confirmation prompt (`read -p`) with `--force` flag for automated recovery pipelines.
   * Ensure target database exists with `utf8mb4` encoding before streaming data.
   * Verify Flyway schema migration history (`flyway_schema_history`) and table row counts (`categories`, `feeds`, `articles`) following restore.
-* Update `.gitignore` to strictly exclude `backups/`, `*.sql`, and `*.sql.gz` files from repository tracking.
+* Update `../../.gitignore` to strictly exclude `backups/`, `*.sql`, and `*.sql.gz` files from repository tracking.
 * Verify backup and disaster recovery execution locally against running MySQL container.
-* Create documentation in `docs/backup-restore-verification.md`.
+* Create documentation in `../backup-restore-verification.md`.
 
 ### Verification Checklist
 - [x] Hot backup execution: Ran `./deploy/backup.sh` against container `marginalia-mysql`, producing compressed archive (`3.6K`).
@@ -699,14 +699,14 @@ curl -s http://localhost:5173/api/auth/status
 - [x] Disaster recovery restore verification: Successfully restored backup archive into sandbox database `marginalia_restore_test` using `./deploy/restore.sh`.
 - [x] Flyway schema validation: Confirmed `flyway_schema_history` table verified with migrations 1, 2, and 3.
 - [x] Row count audit: Restored schema and row counts confirmed.
-- [x] Documentation: Created `docs/backup-restore-verification.md`.
+- [x] Documentation: Created `../backup-restore-verification.md`.
 
 ---
 
 ## 2026-10-10 — Phase 5: Terraform IaC Automation & Lightsail Deployment Runbook (Step 5.6)
 
 ### Scope & Goals
-* Implement declarative Infrastructure as Code (IaC) for AWS Lightsail in `deploy/terraform/`:
+* Implement declarative Infrastructure as Code (IaC) for AWS Lightsail in `../../deploy/terraform`:
   * **Core Compute & Networking (`main.tf`, `variables.tf`)**:
     * AWS provider definition with version constraint (`hashicorp/aws >= 5.0, < 7.0`).
     * SSH key pair resource (`aws_lightsail_key_pair`) importing local public key (`var.public_key_path`).
@@ -728,15 +728,15 @@ curl -s http://localhost:5173/api/auth/status
   * **Outputs & Configuration Templates (`outputs.tf`, `terraform.tfvars.example`)**:
     * Exports actionable outputs: `static_ip`, `ssh_command`, `dns_a_record_target`, `app_url`, Route 53 FQDN, S3 bucket URI, and IAM uploader credentials.
     * Fully documented `terraform.tfvars.example` template.
-* Create comprehensive end-to-end production deployment guide and operations runbook in `docs/deployment-guide.md`:
+* Create comprehensive end-to-end production deployment guide and operations runbook in `../deployment-guide.md`:
   * Phase 1: Local Terraform provisioning (`terraform init`, `plan`, `apply`).
   * Phase 2: DNS routing configuration and propagation checks (`dig`, `nslookup`).
   * Phase 3: Remote host SSH verification, cloud-init bootstrap validation, and repo setup.
-  * Phase 4: Production secrets and environment parameterization (`deploy/.env`).
+  * Phase 4: Production secrets and environment parameterization (`../../deploy/.env`).
   * Phase 5: Container launch (`compose.yaml`) and automated Let's Encrypt TLS verification in Caddy.
   * Phase 6: Automated backup scheduling via `systemd.timer` (`marginalia-backup.timer`).
   * Phase 7: Day-2 maintenance, zero-downtime rolling updates, and disaster recovery restore runbook.
-* Update project documentation and roadmap in `README.md`.
+* Update project documentation and roadmap in `../../README.md`.
 
 ### Verification Checklist
 - [x] Terraform formatting: `terraform -chdir=deploy/terraform fmt -check` passed with 0 diffs.
@@ -746,6 +746,6 @@ curl -s http://localhost:5173/api/auth/status
 - [x] Schema validation (all features enabled): Validated successfully with compute, S3, IAM, and Route 53 active simultaneously.
 - [x] Cloud-init syntax: Rendered template validated without syntax errors via `bash -n`.
 - [x] Variable template validation: Tested `terraform.tfvars.example` against Terraform schema.
-- [x] Documentation: Created `docs/deployment-guide.md` and finalized `README.md`.
+- [x] Documentation: Created `../deployment-guide.md` and finalized `README.md`.
 
 

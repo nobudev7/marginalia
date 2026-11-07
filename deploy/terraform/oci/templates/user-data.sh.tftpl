@@ -1,0 +1,135 @@
+#!/bin/sh
+# ==============================================================================
+# Marginalia — OCI First-Boot Bootstrap (cloud-init user_data)
+# Rendered by Terraform templatefile(). Shell variables use $VAR (no braces)
+# to avoid clashing with Terraform interpolation syntax.
+#
+# Compatible with Canonical Ubuntu 24.04 (ARM64 & x86_64) and Debian 12.
+#
+# Log:    /var/log/cloud-init-output.log
+# Marker: /var/lib/marginalia-bootstrap.done
+# ==============================================================================
+set -eu
+
+echo "==> Marginalia OCI bootstrap started: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+export DEBIAN_FRONTEND=noninteractive
+SWAP_SIZE_GB=${swap_size_gb}
+APP_DIR="${app_dir}"
+ADMIN_USER="${admin_user}"
+
+# ------------------------------------------------------------------------------
+# 1. Swap file
+# ------------------------------------------------------------------------------
+if [ "$SWAP_SIZE_GB" -gt 0 ] && [ ! -f /swapfile ]; then
+  echo "==> Creating $SWAP_SIZE_GB GB swap file"
+  fallocate -l "$SWAP_SIZE_GB"G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=$((SWAP_SIZE_GB * 1024))
+  chmod 600 /swapfile
+  mkswap /swapfile
+  swapon /swapfile
+  grep -q '^/swapfile ' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+fi
+
+cat > /etc/sysctl.d/99-marginalia.conf <<'EOF'
+# Prefer RAM; only swap under real memory pressure
+vm.swappiness = 10
+vm.vfs_cache_pressure = 50
+EOF
+sysctl --system >/dev/null 2>&1 || true
+
+# ------------------------------------------------------------------------------
+# 2. Base packages & SSH brute-force protection
+# ------------------------------------------------------------------------------
+echo "==> Installing base packages"
+apt-get update -y
+apt-get install -y --no-install-recommends \
+  ca-certificates curl gnupg git unzip fail2ban python3-systemd \
+  unattended-upgrades iptables-persistent netfilter-persistent
+
+cat > /etc/fail2ban/jail.d/sshd.local <<'EOF'
+[sshd]
+enabled = true
+backend = systemd
+maxretry = 5
+bantime = 1h
+EOF
+systemctl enable --now fail2ban
+systemctl enable --now unattended-upgrades
+
+# ------------------------------------------------------------------------------
+# 3. OCI Host Firewall (iptables)
+# Canonical Ubuntu images on OCI ship with an INPUT REJECT rule in
+# /etc/iptables/rules.v4 blocking all inbound traffic except TCP 22, even when
+# the VCN Security List allows 80/443. Open HTTP/HTTPS before starting Docker.
+# ------------------------------------------------------------------------------
+if command -v iptables >/dev/null 2>&1; then
+  echo "==> Opening HTTP/HTTPS ports in host iptables"
+  iptables -C INPUT -p tcp --dport 80 -m state --state NEW -j ACCEPT 2>/dev/null || \
+    iptables -I INPUT 1 -p tcp --dport 80 -m state --state NEW -j ACCEPT
+  iptables -C INPUT -p tcp --dport 443 -m state --state NEW -j ACCEPT 2>/dev/null || \
+    iptables -I INPUT 1 -p tcp --dport 443 -m state --state NEW -j ACCEPT
+  iptables -C INPUT -p udp --dport 443 -j ACCEPT 2>/dev/null || \
+    iptables -I INPUT 1 -p udp --dport 443 -j ACCEPT
+
+  if command -v netfilter-persistent >/dev/null 2>&1; then
+    netfilter-persistent save || true
+  fi
+fi
+
+# ------------------------------------------------------------------------------
+# 4. Docker Engine + Compose plugin (official Docker apt repository, multi-arch)
+# ------------------------------------------------------------------------------
+if ! command -v docker >/dev/null 2>&1; then
+  echo "==> Installing Docker Engine"
+  . /etc/os-release
+  OS_ID="$ID"
+  OS_CODENAME="$VERSION_CODENAME"
+  ARCH="$(dpkg --print-architecture)"
+
+  install -m 0755 -d /etc/apt/keyrings
+  curl -fsSL "https://download.docker.com/linux/$OS_ID/gpg" -o /etc/apt/keyrings/docker.asc
+  chmod a+r /etc/apt/keyrings/docker.asc
+
+  echo "deb [arch=$ARCH signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/$OS_ID $OS_CODENAME stable" \
+    > /etc/apt/sources.list.d/docker.list
+
+  apt-get update -y
+  apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+fi
+
+# Cap container log growth
+mkdir -p /etc/docker
+cat > /etc/docker/daemon.json <<'EOF'
+{
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "10m",
+    "max-file": "3"
+  }
+}
+EOF
+
+systemctl enable docker
+systemctl restart docker
+
+# Allow the SSH user to run docker without sudo
+if id "$ADMIN_USER" >/dev/null 2>&1; then
+  usermod -aG docker "$ADMIN_USER"
+fi
+
+# ------------------------------------------------------------------------------
+# 5. Application directory
+# ------------------------------------------------------------------------------
+mkdir -p "$APP_DIR"
+if id "$ADMIN_USER" >/dev/null 2>&1; then
+  chown "$ADMIN_USER":"$ADMIN_USER" "$APP_DIR"
+fi
+
+# ------------------------------------------------------------------------------
+# Done
+# ------------------------------------------------------------------------------
+touch /var/lib/marginalia-bootstrap.done
+echo "==> Marginalia OCI bootstrap finished: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+docker --version
+docker compose version
+swapon --show || true

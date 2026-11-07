@@ -1,0 +1,28 @@
+# ==============================================================================
+# Marginalia — Route 53 DNS Configuration Template
+# Copy this file to "terraform.tfvars" and customize:
+#   cp terraform.tfvars.example terraform.tfvars
+#
+# DO NOT commit "terraform.tfvars" to version control.
+# ==============================================================================
+
+aws_region = "us-east-1"
+
+# Static IPv4 address from your compute stack (`terraform output -raw static_ip`
+# in ../aws-lightsail or ../oci):
+target_ip = "203.0.113.10"
+
+# Subdomain where Marginalia will be served:
+subdomain_name = "reader.yourdomain.com"
+
+# Hosted Zone identification (provide EITHER route53_zone_id OR route53_zone_name):
+# route53_zone_id = "Z0123456789ABCDEF"
+route53_zone_name = "yourdomain.com"
+
+# DNS TTL in seconds (lower to 60 before migrating servers):
+route53_ttl = 300
+
+tags = {
+  Environment = "production"
+  Application = "marginalia"
+}
