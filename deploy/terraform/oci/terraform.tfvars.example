@@ -1,0 +1,76 @@
+# ==============================================================================
+# Marginalia — OCI Configuration Template (Always Free & Paid Tiers)
+# Copy this file to "terraform.tfvars" and customize for your deployment:
+#   cp terraform.tfvars.example terraform.tfvars
+#
+# DO NOT commit "terraform.tfvars" or "*.pem" keys to version control.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. OCI Authentication & Region
+# ------------------------------------------------------------------------------
+# Home Region of your OCI tenancy (required for Always Free eligibility).
+# Examples: "us-sanjose-1", "us-phoenix-1", "us-ashburn-1", "eu-frankfurt-1", "ap-tokyo-1"
+oci_region = "us-sanjose-1"
+
+# Your OCI Tenancy OCID (Identity -> Domains -> Tenancy details):
+tenancy_ocid = "ocid1.tenancy.oc1..aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
+# Optional child compartment OCID (leave commented to use root tenancy compartment):
+# compartment_ocid = "ocid1.compartment.oc1..aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
+# Authentication Option A: Use ~/.oci/config (leave user_ocid/fingerprint/private_key_path unset)
+# oci_config_file_profile = "DEFAULT"
+
+# Authentication Option B: Explicit API Signing Key paths/OCIDs
+# user_ocid        = "ocid1.user.oc1..aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+# fingerprint      = "aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99"
+# private_key_path = "~/.oci/oci_api_key.pem"
+
+# Availability Domain index (1, 2, or 3). Try 2 or 3 in multi-AD regions if AD-1
+# temporarily lacks free-tier ARM host capacity.
+availability_domain_number = 1
+
+# ------------------------------------------------------------------------------
+# 2. Compute Shape & Sizing
+#
+# ACCOUNT TIP:
+#   Upgrading an OCI Free Tier account to Pay-As-You-Go (PAYG) retains the exact
+#   same $0.00/mo Always Free allowance (up to 4 A1 OCPUs, 24 GB RAM, 200 GB
+#   storage, 10 TB/mo outbound data), disables 7-day idle VM reclamation, and
+#   eliminates ARM "Out of host capacity" errors. Set an OCI Budget Alert at
+#   $1/month in Billing -> Budgets as a safeguard.
+# ------------------------------------------------------------------------------
+instance_name = "marginalia"
+
+# Default: Always Free ARM64 ($0.00/mo within 4 OCPU / 24 GB tenancy allowance)
+instance_shape      = "VM.Standard.A1.Flex"
+instance_ocpus      = 2
+instance_memory_gb  = 12
+boot_volume_size_gb = 50
+swap_size_gb        = 2
+
+# Example Paid / Scaled-Up Override (uncomment to use):
+# instance_shape      = "VM.Standard.E5.Flex" # or "VM.Standard.A2.Flex"
+# instance_ocpus      = 2
+# instance_memory_gb  = 16
+# boot_volume_size_gb = 100
+
+app_dir = "/opt/marginalia"
+
+# ------------------------------------------------------------------------------
+# 3. SSH Access & Firewall Hardening
+# ------------------------------------------------------------------------------
+public_key_path = "~/.ssh/id_ed25519.pub"
+
+# Restrict SSH (port 22) to your own IP address in production:
+# ssh_allowed_cidrs = ["203.0.113.195/32"]
+ssh_allowed_cidrs = ["0.0.0.0/0"]
+
+# ------------------------------------------------------------------------------
+# 4. Freeform Tags
+# ------------------------------------------------------------------------------
+tags = {
+  Environment = "production"
+  Application = "marginalia"
+}

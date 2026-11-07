@@ -8,7 +8,7 @@ output "s3_backup_bucket_name" {
 }
 
 output "s3_backup_bucket_uri" {
-  description = "S3 URI to configure as S3_BACKUP_URI in deploy/.env."
+  description = "S3 URI to configure as S3_BUCKET in deploy/.env."
   value       = "s3://${aws_s3_bucket.backup.id}/marginalia"
 }
 
