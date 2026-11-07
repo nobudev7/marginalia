@@ -13,9 +13,11 @@ import com.rometools.rome.io.XmlReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
+import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.util.unit.DataSize;
@@ -28,6 +30,7 @@ import java.io.InputStream;
 import java.io.PushbackReader;
 import java.net.URI;
 import java.net.URLDecoder;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -35,8 +38,12 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.jdom2.Document;
@@ -55,25 +62,52 @@ public class FeedCrawlerService {
 
     private static final Logger log = LoggerFactory.getLogger(FeedCrawlerService.class);
 
+    private static final int MAX_OG_FETCHES_PER_CRAWL = 25;
+    private static final int MAX_OG_HTML_BYTES = 65_536;
+    private static final int MAX_OG_PROBED_CACHE_SIZE = 4_096;
+
     private final FeedRepository feedRepository;
     private final ArticleRepository articleRepository;
     private final RestClient restClient;
+    private final RestClient openGraphRestClient;
     private final DataSize maxFeedSize;
+
+    /**
+     * Bounded LRU set of article URLs already probed for Open Graph metadata so
+     * articles whose pages genuinely lack og:image are not re-fetched on subsequent crawls.
+     */
+    private final Set<String> ogProbedUrls = Collections.synchronizedSet(
+            Collections.newSetFromMap(new LinkedHashMap<>(256, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<String, Boolean> eldest) {
+                    return size() > MAX_OG_PROBED_CACHE_SIZE;
+                }
+            })
+    );
 
     public FeedCrawlerService(FeedRepository feedRepository,
                               ArticleRepository articleRepository,
                               RestClient restClient) {
-        this(feedRepository, articleRepository, restClient, DataSize.ofMegabytes(10));
+        this(feedRepository, articleRepository, restClient, null, DataSize.ofMegabytes(10));
+    }
+
+    public FeedCrawlerService(FeedRepository feedRepository,
+                              ArticleRepository articleRepository,
+                              RestClient restClient,
+                              DataSize maxFeedSize) {
+        this(feedRepository, articleRepository, restClient, null, maxFeedSize);
     }
 
     @Autowired
     public FeedCrawlerService(FeedRepository feedRepository,
                               ArticleRepository articleRepository,
                               RestClient restClient,
+                              @Qualifier("openGraphRestClient") RestClient openGraphRestClient,
                               @Value("${app.crawler.max-feed-size:10MB}") DataSize maxFeedSize) {
         this.feedRepository = feedRepository;
         this.articleRepository = articleRepository;
         this.restClient = restClient;
+        this.openGraphRestClient = openGraphRestClient;
         this.maxFeedSize = maxFeedSize != null ? maxFeedSize : DataSize.ofMegabytes(10);
     }
 
@@ -122,6 +156,7 @@ public class FeedCrawlerService {
      */
     public CrawlResult crawlFeed(Feed feed) {
         log.debug("Crawling feed: {} ({})", feed.getTitle(), feed.getFeedUrl());
+        int[] ogBudget = {MAX_OG_FETCHES_PER_CRAWL};
         try {
             FetchResult fetchResult = fetchFeed(feed);
 
@@ -131,6 +166,7 @@ public class FeedCrawlerService {
                 feed.setFetchErrorCount(0);
                 feed.setLastErrorMessage(null);
                 feedRepository.save(feed);
+                backfillMissingOpenGraphImages(feed, ogBudget);
                 return new CrawlResult(0, 0, true, null);
             }
 
@@ -155,10 +191,12 @@ public class FeedCrawlerService {
             int newCount = 0;
             List<SyndEntry> entries = syndFeed.getEntries();
             for (SyndEntry entry : entries) {
-                if (processEntry(feed, entry)) {
+                if (processEntry(feed, entry, ogBudget)) {
                     newCount++;
                 }
             }
+
+            backfillMissingOpenGraphImages(feed, ogBudget);
 
             feedRepository.save(feed);
             log.info("Crawled '{}': {} new / {} total entries", feed.getTitle(), newCount, entries.size());
@@ -544,12 +582,21 @@ public class FeedCrawlerService {
             Pattern.CASE_INSENSITIVE
     );
 
+    private static final Pattern META_TAG_PATTERN = Pattern.compile(
+            "<meta\\b[^>]*>",
+            Pattern.CASE_INSENSITIVE
+    );
+
+    private static final Pattern META_ATTR_PATTERN = Pattern.compile(
+            "([a-zA-Z_:][-a-zA-Z0-9_:.]*)\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s\"'>]+))"
+    );
+
     /**
      * Processes a single feed entry. Returns true if a new article was saved,
      * false if it already existed (deduplicated by feed_id + guid).
      * Backfills missing metadata/thumbnails for existing articles if now available.
      */
-    private boolean processEntry(Feed feed, SyndEntry entry) {
+    private boolean processEntry(Feed feed, SyndEntry entry, int[] ogBudget) {
         String guid = extractGuid(entry);
         String resolvedTitle = (entry.getTitle() != null && !entry.getTitle().isBlank())
                 ? truncate(entry.getTitle().trim(), 512)
@@ -587,6 +634,9 @@ public class FeedCrawlerService {
             }
             if (existing.getImageUrl() == null) {
                 String img = extractImageUrl(entry, existing);
+                if (img == null && !existing.isFiltered()) {
+                    img = tryFetchOpenGraphImage(existing.getArticleUrl(), ogBudget);
+                }
                 if (img != null) {
                     existing.setImageUrl(img);
                     updated = true;
@@ -622,11 +672,202 @@ public class FeedCrawlerService {
             article.setContent(article.getSummary());
         }
 
-        // Extract image using enclosures, Media RSS (<media:content>/<media:thumbnail>), or inline <img> tags
-        article.setImageUrl(extractImageUrl(entry, article));
+        // Extract image using enclosures, Media RSS, inline <img>, or Open Graph (og:image / twitter:image) fallback
+        String imageUrl = extractImageUrl(entry, article);
+        if (imageUrl == null && !article.isFiltered()) {
+            imageUrl = tryFetchOpenGraphImage(article.getArticleUrl(), ogBudget);
+        }
+        article.setImageUrl(imageUrl);
 
         articleRepository.save(article);
         return true;
+    }
+
+    /**
+     * Backfills Open Graph thumbnails for recent non-filtered articles in this feed
+     * that still lack an image (e.g., when a feed returns 304 Not Modified).
+     */
+    private void backfillMissingOpenGraphImages(Feed feed, int[] ogBudget) {
+        if (openGraphRestClient == null || feed.getId() == null || ogBudget[0] <= 0) {
+            return;
+        }
+        List<Article> missing = articleRepository
+                .findTop20ByFeedIdAndImageUrlIsNullAndFilteredFalseOrderByPublishedAtDesc(feed.getId());
+        for (Article article : missing) {
+            if (ogBudget[0] <= 0) {
+                break;
+            }
+            String img = tryFetchOpenGraphImage(article.getArticleUrl(), ogBudget);
+            if (img != null) {
+                article.setImageUrl(img);
+                articleRepository.save(article);
+            }
+        }
+    }
+
+    /**
+     * Fetches at most the first {@link #MAX_OG_HTML_BYTES} of {@code articleUrl} to extract
+     * {@code og:image} or {@code twitter:image} metadata, enforcing SSRF validation across
+     * redirects and probing each URL at most once per LRU cache lifetime.
+     */
+    private String tryFetchOpenGraphImage(String articleUrl, int[] ogBudget) {
+        if (openGraphRestClient == null || ogBudget[0] <= 0 || articleUrl == null || articleUrl.isBlank()) {
+            return null;
+        }
+        String trimmedUrl = articleUrl.trim();
+        if (!ogProbedUrls.add(trimmedUrl)) {
+            return null;
+        }
+        ogBudget[0]--;
+
+        String currentUrl = trimmedUrl;
+        try {
+            for (int hop = 0; hop <= MAX_REDIRECTS; hop++) {
+                UrlSafetyValidator.validate(currentUrl);
+
+                FetchResult res = openGraphRestClient.get().uri(currentUrl).exchange((request, response) -> {
+                    HttpStatusCode status = response.getStatusCode();
+                    HttpHeaders headers = response.getHeaders();
+                    if (isRedirect(status.value()) || !status.is2xxSuccessful()) {
+                        return new FetchResult(status.value(), headers, new byte[0]);
+                    }
+                    MediaType contentType = null;
+                    try {
+                        contentType = headers.getContentType();
+                    } catch (Exception ignored) {
+                        // Ignore malformed Content-Type header
+                    }
+                    if (contentType != null) {
+                        String typeAndSubtype = (contentType.getType() + "/" + contentType.getSubtype())
+                                .toLowerCase(Locale.ROOT);
+                        if (typeAndSubtype.startsWith("image/")) {
+                            return new FetchResult(status.value(), headers, new byte[0]);
+                        }
+                        if (!typeAndSubtype.contains("html") && !typeAndSubtype.contains("xml")) {
+                            return new FetchResult(415, headers, new byte[0]);
+                        }
+                    }
+                    byte[] prefix = response.getBody().readNBytes(MAX_OG_HTML_BYTES);
+                    return new FetchResult(status.value(), headers, prefix);
+                });
+
+                if (isRedirect(res.statusCode())) {
+                    if (hop == MAX_REDIRECTS) {
+                        return null;
+                    }
+                    String location = res.headers().getFirst("Location");
+                    if (location == null || location.isBlank()) {
+                        return null;
+                    }
+                    currentUrl = URI.create(currentUrl).resolve(location.trim()).toString();
+                    continue;
+                }
+
+                if (res.statusCode() < 200 || res.statusCode() >= 300) {
+                    return null;
+                }
+
+                MediaType contentType = null;
+                try {
+                    contentType = res.headers().getContentType();
+                } catch (Exception ignored) {
+                    // Ignore
+                }
+                if (contentType != null && "image".equalsIgnoreCase(contentType.getType())) {
+                    return currentUrl.length() <= 2048 ? currentUrl : null;
+                }
+
+                if (res.body() == null || res.body().length == 0) {
+                    return null;
+                }
+
+                Charset charset = StandardCharsets.UTF_8;
+                if (contentType != null && contentType.getCharset() != null) {
+                    charset = contentType.getCharset();
+                }
+                String htmlSnippet = new String(res.body(), charset);
+                return extractOpenGraphImageFromHtml(htmlSnippet, currentUrl);
+            }
+        } catch (Exception e) {
+            log.debug("Could not extract Open Graph image from '{}': {}", articleUrl, e.getMessage());
+        }
+        return null;
+    }
+
+    static String extractOpenGraphImageFromHtml(String html, String pageUrl) {
+        if (html == null || html.isBlank()) {
+            return null;
+        }
+        int headEnd = html.toLowerCase(Locale.ROOT).indexOf("</head>");
+        String headSlice = headEnd >= 0 ? html.substring(0, headEnd) : html;
+
+        String twitterFallback = null;
+        Matcher tagMatcher = META_TAG_PATTERN.matcher(headSlice);
+        while (tagMatcher.find()) {
+            String tag = tagMatcher.group();
+            String key = null;
+            String content = null;
+
+            Matcher attrMatcher = META_ATTR_PATTERN.matcher(tag);
+            while (attrMatcher.find()) {
+                String attrName = attrMatcher.group(1).toLowerCase(Locale.ROOT);
+                String attrVal = attrMatcher.group(2) != null
+                        ? attrMatcher.group(2)
+                        : (attrMatcher.group(3) != null ? attrMatcher.group(3) : attrMatcher.group(4));
+                if (attrVal == null) {
+                    continue;
+                }
+                if ("property".equals(attrName) || "name".equals(attrName) || "itemprop".equals(attrName)) {
+                    key = attrVal.trim().toLowerCase(Locale.ROOT);
+                } else if ("content".equals(attrName)) {
+                    content = attrVal;
+                }
+            }
+
+            if (key == null || content == null || content.isBlank()) {
+                continue;
+            }
+
+            if ("og:image".equals(key) || "og:image:url".equals(key) || "og:image:secure_url".equals(key)) {
+                String resolved = resolveCandidateImageUrl(content, pageUrl);
+                if (resolved != null) {
+                    return resolved;
+                }
+            } else if (twitterFallback == null
+                    && ("twitter:image".equals(key) || "twitter:image:src".equals(key))) {
+                twitterFallback = resolveCandidateImageUrl(content, pageUrl);
+            }
+        }
+        return twitterFallback;
+    }
+
+    private static String resolveCandidateImageUrl(String rawUrl, String pageUrl) {
+        String unescaped = rawUrl.trim()
+                .replace("&amp;", "&")
+                .replace("&#38;", "&")
+                .replace("&#x26;", "&")
+                .replace("&#X26;", "&")
+                .replace("&quot;", "\"")
+                .replace("&#39;", "'");
+        if (unescaped.isEmpty() || unescaped.regionMatches(true, 0, "data:", 0, 5)) {
+            return null;
+        }
+        String resolved = unescaped;
+        try {
+            if (pageUrl != null && !pageUrl.isBlank()) {
+                resolved = URI.create(pageUrl.trim()).resolve(unescaped).toString();
+            }
+        } catch (Exception ignored) {
+            // Keep unescaped candidate if URI resolution fails
+        }
+        String lower = resolved.toLowerCase(Locale.ROOT);
+        if ((!lower.startsWith("http://") && !lower.startsWith("https://")) || resolved.length() > 2048) {
+            return null;
+        }
+        if (lower.contains("feedburner.com") || lower.contains("1x1") || lower.contains("tracking") || lower.contains("beacon")) {
+            return null;
+        }
+        return resolved;
     }
 
     /**

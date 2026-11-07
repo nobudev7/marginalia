@@ -555,4 +555,98 @@ class FeedCrawlerServiceTest {
 
         mockServer.verify();
     }
+
+    @Test
+    void testExtractOpenGraphImageFallbackAndNoRedundantReprobe() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer ogMockServer = MockRestServiceServer.bindTo(builder).build();
+        RestClient client = builder.build();
+        FeedCrawlerService ogCrawler = new FeedCrawlerService(
+                feedRepository,
+                articleRepository,
+                client,
+                client,
+                DataSize.ofMegabytes(10)
+        );
+
+        String rdfFeedXml = """
+            <?xml version="1.0" encoding="utf-8" ?>
+            <rdf:RDF
+              xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+              xmlns="http://purl.org/rss/1.0/"
+              xmlns:dc="http://purl.org/dc/elements/1.1/">
+              <channel rdf:about="https://www.itmedia.co.jp/news/fortop/">
+                <title>ITmedia TOP STORIES</title>
+                <link>https://www.itmedia.co.jp/news/fortop/</link>
+                <description>ITmedia TOP STORIES</description>
+              </channel>
+              <item rdf:about="https://www.itmedia.co.jp/mobile/articles/2611/07/news019.html">
+                <title>Article With OG Image</title>
+                <link>https://www.itmedia.co.jp/mobile/articles/2611/07/news019.html</link>
+                <description>Plain text summary without img tags.</description>
+                <dc:date>2026-11-07T16:47:00+09:00</dc:date>
+              </item>
+              <item rdf:about="https://www.itmedia.co.jp/news/article/2611/06/2000002984/">
+                <title>Article With Twitter Image And Relative Query</title>
+                <link>https://www.itmedia.co.jp/news/article/2611/06/2000002984/</link>
+                <description>Another plain text summary.</description>
+                <dc:date>2026-11-06T19:31:25+09:00</dc:date>
+              </item>
+              <item rdf:about="https://www.itmedia.co.jp/news/article/2611/06/no-og/">
+                <title>Article Without Any Meta Image</title>
+                <link>https://www.itmedia.co.jp/news/article/2611/06/no-og/</link>
+                <description>No og:image on page either.</description>
+                <dc:date>2026-11-06T12:00:00+09:00</dc:date>
+              </item>
+            </rdf:RDF>
+            """;
+
+        Feed feed = feedRepository.save(
+                new Feed(testUser, null, "https://rss.itmedia.co.jp/rss/1.0/topstory.xml", null, "ITmedia", null)
+        );
+
+        ogMockServer.expect(requestTo("https://rss.itmedia.co.jp/rss/1.0/topstory.xml"))
+                .andRespond(withSuccess(rdfFeedXml, MediaType.APPLICATION_XML)
+                        .header(HttpHeaders.ETAG, "\"itmedia-etag\""));
+
+        ogMockServer.expect(requestTo("https://www.itmedia.co.jp/mobile/articles/2611/07/news019.html"))
+                .andRespond(withSuccess("""
+                        <html><head>
+                          <meta property="og:image" content="https://image.itmedia.co.jp/mobile/articles/2611/07/cover_news019.jpg">
+                        </head><body>Body</body></html>
+                        """, MediaType.TEXT_HTML));
+
+        ogMockServer.expect(requestTo("https://www.itmedia.co.jp/news/article/2611/06/2000002984/"))
+                .andRespond(withSuccess("""
+                        <html><head>
+                          <meta content="/images/card.png?w=800&amp;q=85" name="twitter:image" />
+                        </head><body>Body</body></html>
+                        """, MediaType.TEXT_HTML));
+
+        ogMockServer.expect(requestTo("https://www.itmedia.co.jp/news/article/2611/06/no-og/"))
+                .andRespond(withSuccess("<html><head><title>No Image</title></head><body></body></html>", MediaType.TEXT_HTML));
+
+        // Second crawl returns 304 Not Modified; no-og article should NOT be re-probed
+        ogMockServer.expect(requestTo("https://rss.itmedia.co.jp/rss/1.0/topstory.xml"))
+                .andRespond(withStatus(HttpStatus.NOT_MODIFIED));
+
+        CrawlResult first = ogCrawler.crawlFeed(feed);
+        assertThat(first.isSuccess()).isTrue();
+        assertThat(first.newArticles()).isEqualTo(3);
+
+        List<Article> saved = articleRepository.findAll();
+        Article a1 = saved.stream().filter(a -> a.getTitle().equals("Article With OG Image")).findFirst().orElseThrow();
+        Article a2 = saved.stream().filter(a -> a.getTitle().equals("Article With Twitter Image And Relative Query")).findFirst().orElseThrow();
+        Article a3 = saved.stream().filter(a -> a.getTitle().equals("Article Without Any Meta Image")).findFirst().orElseThrow();
+
+        assertThat(a1.getImageUrl()).isEqualTo("https://image.itmedia.co.jp/mobile/articles/2611/07/cover_news019.jpg");
+        assertThat(a2.getImageUrl()).isEqualTo("https://www.itmedia.co.jp/images/card.png?w=800&q=85");
+        assertThat(a3.getImageUrl()).isNull();
+
+        CrawlResult second = ogCrawler.crawlFeed(feed);
+        assertThat(second.isSuccess()).isTrue();
+        assertThat(second.notModified()).isTrue();
+
+        ogMockServer.verify();
+    }
 }
