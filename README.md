@@ -107,9 +107,9 @@ For complete step-by-step instructions, Route 53 subdomain configuration, and di
 * [OAuth2 Setup Guide](docs/oauth2-setup-guide.md) — Step-by-step Google and GitHub OAuth2 configuration.
 * [Local Development Guide](docs/local-development-guide.md) — Activating the `dev` profile, safe defaults, and testing dev-login.
 * [Email Whitelist Administration Guide](docs/whitelist-admin-guide.md) — Managing access, safety measures, and admin REST endpoints.
-* [Future Expansion to Public Service (Path B)](docs/future-expansion-public-service.md) — Technical migration plan for global feed deduplication and multi-user scaling.
+* [Future Expansion to Public Service (Path B)](docs/notes/future-expansion-public-service.md) — Technical migration plan for global feed deduplication and multi-user scaling.
 * [Changelog](CHANGELOG.md) — Release history and commit summaries.
-* [Development Log](docs/dev-log.md) — Detailed changelog, architectural decisions, and verification records.
+* [Development Log](docs/notes/dev-log.md) — Detailed changelog, architectural decisions, and verification records.
 
 ---
 
