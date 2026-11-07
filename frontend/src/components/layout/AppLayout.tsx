@@ -74,8 +74,10 @@ export function AppLayout() {
           <ArticleStream
             filter={currentFilter}
             feeds={feeds}
+            categories={categories}
             unreadByFeed={unreadByFeed}
             totalUnread={totalUnread}
+            onSelectFilter={setCurrentFilter}
             onUnreadChanged={refreshFeeds}
             onOpenAddFeed={() => setIsAddFeedModalOpen(true)}
             onUpdateFeed={updateFeed}

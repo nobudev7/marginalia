@@ -40,6 +40,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import type { CategoryDto, FeedDto, NavFilter } from '../../types';
 import { cn } from '../../utils/cn';
+import { groupFeedsByCategory } from '../../utils/feedOrder';
 
 interface SidebarProps {
   currentFilter: NavFilter;
@@ -503,19 +504,8 @@ export function Sidebar({
   const displayedFeeds = activeFeed ? localFeeds : feeds;
 
   // Group feeds by category ID preserving their list order
-  const categorizedFeeds: Record<number, FeedDto[]> = {};
-  const uncategorizedFeeds: FeedDto[] = [];
-
-  for (const feed of displayedFeeds) {
-    if (feed.categoryId) {
-      if (!categorizedFeeds[feed.categoryId]) {
-        categorizedFeeds[feed.categoryId] = [];
-      }
-      categorizedFeeds[feed.categoryId].push(feed);
-    } else {
-      uncategorizedFeeds.push(feed);
-    }
-  }
+  const { categorized: categorizedFeeds, uncategorized: uncategorizedFeeds } =
+    groupFeedsByCategory(displayedFeeds);
 
   // Calculate unread count per category
   const getCategoryUnread = (catFeeds: FeedDto[] = []) => {
