@@ -14,22 +14,26 @@ import {
   Eye,
   EyeOff,
   ArrowUpToLine,
+  ArrowRight,
   Filter,
   Loader2,
   X
 } from 'lucide-react';
-import type { NavFilter, FeedDto, FeedRequest, ArticleDto } from '../../types';
+import type { NavFilter, FeedDto, CategoryDto, FeedRequest, ArticleDto } from '../../types';
 import { useArticles } from '../../hooks/useArticles';
+import { getNextUnreadFeed, getNextUnreadCategory } from '../../utils/feedOrder';
 import { ArticleCard } from './ArticleCard';
 import { ReadingDrawer } from '../article/ReadingDrawer';
 
 interface ArticleStreamProps {
   filter: NavFilter;
   feeds: FeedDto[];
-  unreadByFeed: Record<string, number>;
+  categories: CategoryDto[];
+  unreadByFeed: Record<number, number>;
   totalUnread: number;
   onUnreadChanged: () => void;
   onOpenAddFeed: () => void;
+  onSelectFilter: (filter: NavFilter) => void;
   onUpdateFeed?: (id: number, request: FeedRequest) => Promise<FeedDto>;
   onSelectArticle?: (article: ArticleDto) => void;
 }
@@ -37,10 +41,12 @@ interface ArticleStreamProps {
 export function ArticleStream({
   filter,
   feeds,
+  categories,
   unreadByFeed,
   totalUnread,
   onUnreadChanged,
   onOpenAddFeed,
+  onSelectFilter,
   onUpdateFeed,
   onSelectArticle,
 }: ArticleStreamProps) {
@@ -267,6 +273,40 @@ export function ArticleStream({
   const longPressHasUnreadAbove =
     firstUnreadIndex !== -1 && longPressIndex > firstUnreadIndex;
 
+  const nextFeed =
+    filter.type === 'feed'
+      ? getNextUnreadFeed(categories, feeds, unreadByFeed, filter.feedId)
+      : undefined;
+
+  const nextCategory =
+    filter.type === 'category'
+      ? getNextUnreadCategory(categories, feeds, unreadByFeed, filter.categoryId)
+      : undefined;
+
+  const nextStreamAction = nextFeed
+    ? {
+        label: 'Next Feed',
+        title: `Advance to ${nextFeed.title}`,
+        onAdvance: () => {
+          onSelectFilter({ type: 'feed', feedId: nextFeed.id, title: nextFeed.title });
+          window.scrollTo({ top: 0 });
+        },
+      }
+    : nextCategory
+      ? {
+          label: 'Next Folder',
+          title: `Advance to ${nextCategory.name}`,
+          onAdvance: () => {
+            onSelectFilter({
+              type: 'category',
+              categoryId: nextCategory.id,
+              name: nextCategory.name,
+            });
+            window.scrollTo({ top: 0 });
+          },
+        }
+      : null;
+
   return (
     <div className="w-full">
       {/* Stream Header */}
@@ -472,14 +512,27 @@ export function ArticleStream({
                   ({activeFilteredCount} article{activeFilteredCount === 1 ? '' : 's'} hidden by title filter)
                 </p>
               )}
-              <button
-                type="button"
-                onClick={() => setUnreadOnly(false)}
-                className="mt-4 px-4 py-2 bg-paper-200 hover:bg-paper-300 text-ink-800 text-xs font-medium rounded-xl transition-colors shadow-2xs inline-flex items-center space-x-1.5 cursor-pointer"
-              >
-                <Eye className="w-3.5 h-3.5 text-ink-600" />
-                <span>Show read articles</span>
-              </button>
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setUnreadOnly(false)}
+                  className="px-4 py-2 bg-paper-200 hover:bg-paper-300 text-ink-800 text-xs font-medium rounded-xl transition-colors shadow-2xs inline-flex items-center space-x-1.5 cursor-pointer"
+                >
+                  <Eye className="w-3.5 h-3.5 text-ink-600" />
+                  <span>Show read articles</span>
+                </button>
+                {nextStreamAction && (
+                  <button
+                    type="button"
+                    onClick={nextStreamAction.onAdvance}
+                    className="px-4 py-2 bg-amberAccent-700 hover:bg-amberAccent-800 text-paper-50 text-xs font-medium rounded-xl transition-colors shadow-xs inline-flex items-center space-x-1.5 cursor-pointer"
+                    title={nextStreamAction.title}
+                  >
+                    <span>{nextStreamAction.label}</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
             </div>
           ) : filter.type === 'unread' ? (
             <div>
@@ -544,22 +597,22 @@ export function ArticleStream({
               </div>
             )}
 
-            <div className="flex flex-wrap items-center justify-center gap-3">
+            <div className="flex flex-wrap items-center justify-center gap-2.5">
               {hasMore && (
                 <button
                   type="button"
                   onClick={loadMore}
                   disabled={loadingMore}
-                  className="px-5 py-2.5 rounded-xl border border-paper-300 hover:border-paper-400 bg-paper-50 hover:bg-paper-200/70 text-ink-800 font-medium text-xs transition-colors shadow-2xs flex items-center space-x-2 disabled:opacity-50 cursor-pointer"
+                  className="px-3.5 py-2.5 rounded-xl border border-paper-300 hover:border-paper-400 bg-paper-50 hover:bg-paper-200/70 text-ink-800 font-medium text-xs transition-colors shadow-2xs flex items-center space-x-1.5 disabled:opacity-50 cursor-pointer"
                 >
                   {loadingMore ? (
                     <>
                       <RotateCw className="w-3.5 h-3.5 animate-spin text-amberAccent-700" />
-                      <span>Loading more dispatches...</span>
+                      <span>Loading...</span>
                     </>
                   ) : (
                     <>
-                      <span>Load More Articles</span>
+                      <span>More</span>
                       <ChevronDown className="w-3.5 h-3.5 text-ink-500" />
                     </>
                   )}
@@ -570,12 +623,24 @@ export function ArticleStream({
                 type="button"
                 onClick={markAllAsRead}
                 disabled={loading || (headerInfo.unreadCount === 0 && unreadInStream === 0)}
-                className="px-5 py-2.5 rounded-xl border border-paper-300 hover:border-paper-400 bg-paper-50 hover:bg-paper-200/70 text-ink-800 font-medium text-xs transition-colors shadow-2xs flex items-center space-x-2 disabled:opacity-40 disabled:hover:bg-paper-50 cursor-pointer disabled:cursor-not-allowed"
+                className="px-3.5 py-2.5 rounded-xl border border-paper-300 hover:border-paper-400 bg-paper-50 hover:bg-paper-200/70 text-ink-800 font-medium text-xs transition-colors shadow-2xs flex items-center space-x-1.5 disabled:opacity-40 disabled:hover:bg-paper-50 cursor-pointer disabled:cursor-not-allowed"
                 title="Mark all articles in view as read"
               >
                 <CheckCheck className="w-4 h-4 text-emerald-700" />
                 <span>Mark All Read</span>
               </button>
+
+              {nextStreamAction && (
+                <button
+                  type="button"
+                  onClick={nextStreamAction.onAdvance}
+                  className="px-3.5 py-2.5 rounded-xl bg-amberAccent-700 hover:bg-amberAccent-800 text-paper-50 font-medium text-xs transition-colors shadow-xs flex items-center space-x-1.5 cursor-pointer"
+                  title={nextStreamAction.title}
+                >
+                  <span>{nextStreamAction.label}</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
 
             <p className="text-[11px] font-mono text-ink-400">
