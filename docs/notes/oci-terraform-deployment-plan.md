@@ -1,11 +1,11 @@
 # Multi-Provider & Modular Terraform Deployment Plan (AWS Lightsail + OCI)
 
-> **Status:** Proposed Plan (Option A — Decoupled Compute, DNS, and Backup Stacks)  
+> **Status:** Completed & Live in Production on OCI  
 > **Target Layout:** `deploy/terraform/{aws-lightsail, oci, dns-route53, backup-s3}/`  
-> **Rollout Strategy:**  
-> 1. **Stage 1:** Split existing Terraform into `aws-lightsail/`, `dns-route53/`, and `backup-s3/` with **zero changes to live AWS resources**.  
-> 2. **Stage 2:** Add pure `deploy/terraform/oci/` (supporting both `$0/mo` Always Free and Paid shapes) + update documentation while production stays on Lightsail.  
-> 3. **Stage 3:** Provision OCI compute, migrate database state, switch **only** `target_ip` in `dns-route53/`, and decommission `aws-lightsail/` (`$7/mo` &rarr; `$0/mo`).
+> **Rollout Milestones:**  
+> 1. **Stage 1 (Completed):** Split existing Terraform into `aws-lightsail/`, `dns-route53/`, and `backup-s3/` with **zero changes to live AWS resources**.  
+> 2. **Stage 2 (Completed):** Added pure `deploy/terraform/oci/` (supporting both `$0/mo` Always Free and Paid shapes via `tfvars`) and updated deployment documentation (PR #32).  
+> 3. **Stage 3 (Live Cutover Completed):** Provisioned OCI compute (`VM.Standard.A1.Flex`), migrated database backup, switched `target_ip` in `dns-route53/`, verified automated Let's Encrypt TLS issuance and daily `marginalia-backup.timer`. (Lightsail VM retained temporarily as rollback safety net).
 
 ---
 
@@ -76,7 +76,7 @@ deploy/
 
 ### 3.1 `deploy/terraform/aws-lightsail/` (Compute Option 1)
 - **Resources:** `aws_lightsail_key_pair.marginalia`, `aws_lightsail_instance.marginalia`, `aws_lightsail_static_ip.marginalia`, `aws_lightsail_static_ip_attachment.marginalia`, `aws_lightsail_instance_public_ports.marginalia`.
-- **Drift Guarantee:** Keeps resource names, `default_tags`, and `templates/user-data.sh.tftpl` byte-for-byte identical to the current configuration so the running Lightsail instance (`52.27.34.209`) has zero diff.
+- **Drift Guarantee:** Keeps resource names, `default_tags`, and `templates/user-data.sh.tftpl` byte-for-byte identical to the current configuration so the running Lightsail instance has zero diff.
 - **Outputs:** `instance_name`, `static_ip`, `ssh_command`, `dns_a_record_target`.
 
 ### 3.2 `deploy/terraform/dns-route53/` (Optional Route 53 Routing)
@@ -148,7 +148,7 @@ deploy/
 
 ### Stage 1: Split Existing AWS Setup into `aws-lightsail/`, `dns-route53/`, and `backup-s3/` (Zero AWS Changes)
 
-**Goal:** Refactor the directory layout and split your local `terraform.tfstate` so all three stacks report **`No changes. Your infrastructure matches the configuration.`** while the live server (`52.27.34.209`), Route 53 subdomain, and S3 backup bucket remain 100% untouched.
+**Goal:** Refactor the directory layout and split your local `terraform.tfstate` so all three stacks report **`No changes. Your infrastructure matches the configuration.`** while the live server, Route 53 subdomain, and S3 backup bucket remain 100% untouched.
 
 1. **Back up local state & configuration first (safety snapshot):**
    ```bash
@@ -161,7 +161,7 @@ deploy/
    - `deploy/terraform/backup-s3/` (extract from `s3.tf`, removing the `enable_s3_backup_bucket` `count` wrapper on core bucket resources while keeping `count` on lifecycle and optional IAM user).
 3. **Split local `terraform.tfvars` into the three folders:**
    - `aws-lightsail/terraform.tfvars` (compute, SSH, tags)
-   - `dns-route53/terraform.tfvars` (`aws_region`, `target_ip = "52.27.34.209"`, `subdomain_name`, `route53_zone_id`/`route53_zone_name`, `route53_ttl`)
+   - `dns-route53/terraform.tfvars` (`aws_region`, `target_ip = "<LIGHTSAIL_STATIC_IP>"`, `subdomain_name`, `route53_zone_id`/`route53_zone_name`, `route53_ttl`)
    - `backup-s3/terraform.tfvars` (`aws_region`, `s3_bucket_name`/`s3_bucket_prefix`, `s3_backup_retention_days`, `create_s3_backup_iam_user`, `tags`)
 4. **Initialize & migrate local state offline (`terraform state mv`):**
    Currently tracked in `deploy/terraform/terraform.tfstate`:
@@ -256,7 +256,7 @@ deploy/
 3. Note the `static_ip` output (`<OCI_STATIC_IP>`), SSH in (`ssh ubuntu@<OCI_STATIC_IP>`), and verify `/var/lib/marginalia-bootstrap.done` exists (`docker compose version`).
 
 #### Step 3.3: Stage Application & Migrate Database
-1. On OCI (`ubuntu@<OCI_STATIC_IP>`), clone the repository to `/opt/marginalia` and copy `deploy/.env` from Lightsail (`admin@52.27.34.209`):
+1. On OCI (`ubuntu@<OCI_STATIC_IP>`), clone the repository to `/opt/marginalia` and copy `deploy/.env` from Lightsail (`admin@<LIGHTSAIL_STATIC_IP>`):
    - **Zero `.env` edits required:** `DOMAIN`, `MYSQL_*`, Google/GitHub OAuth2 client credentials/callbacks, and `S3_BACKUP_*` variables stay identical!
 2. Build containers and start MySQL on OCI while Lightsail is still live:
    ```bash
@@ -266,7 +266,7 @@ deploy/
    ```
 3. Pause writes on Lightsail, take a final backup, and restore on OCI:
    ```bash
-   # On Lightsail (admin@52.27.34.209):
+   # On Lightsail (admin@<LIGHTSAIL_STATIC_IP>):
    cd /opt/marginalia/deploy
    docker compose stop backend
    ./backup.sh
@@ -280,7 +280,7 @@ deploy/
    ```
 
 #### Step 3.4: Switch DNS Pointer in `dns-route53/`
-1. Update **only** `target_ip` in `deploy/terraform/dns-route53/terraform.tfvars` from `"52.27.34.209"` to `"<OCI_STATIC_IP>"` and apply:
+1. Update **only** `target_ip` in `deploy/terraform/dns-route53/terraform.tfvars` from `"<LIGHTSAIL_STATIC_IP>"` to `"<OCI_STATIC_IP>"` and apply:
    ```bash
    terraform -chdir=deploy/terraform/dns-route53 apply
    ```
@@ -290,7 +290,7 @@ deploy/
 #### Step 3.5: Verify & Retire AWS Lightsail
 1. Verify HTTPS access, Google/GitHub OAuth2 login, feed sync, and enable `marginalia-backup.timer` + AWS CLI S3 sync on OCI (`docs/deployment-guide.md` Section 9).
 2. Restore `route53_ttl = 300` in `deploy/terraform/dns-route53/terraform.tfvars` and `apply`.
-3. Keep Lightsail idle for 24–48 hours as an instant 1-line DNS rollback (`target_ip = "52.27.34.209"`).
+3. Keep Lightsail idle for 24–48 hours as an instant 1-line DNS rollback (`target_ip = "<LIGHTSAIL_STATIC_IP>"`).
 4. Once confirmed stable, destroy the Lightsail stack:
    ```bash
    terraform -chdir=deploy/terraform/aws-lightsail destroy

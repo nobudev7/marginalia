@@ -748,4 +748,40 @@ curl -s http://localhost:5173/api/auth/status
 - [x] Variable template validation: Tested `terraform.tfvars.example` against Terraform schema.
 - [x] Documentation: Created `../deployment-guide.md` and finalized `README.md`.
 
+---
+
+## 2026-11-08 — Modular Multi-Provider Terraform Architecture & Oracle Cloud (OCI) Production Migration (Issues #31, PRs #32, #33)
+
+### Scope & Goals
+* **Address Cost Optimization**: Expand Marginalia's deployment options beyond AWS Lightsail ($7/mo) to support **Oracle Cloud Infrastructure (OCI)** (`$0/mo` Always Free ARM or Paid shapes) with zero changes to application code or Docker runtime.
+* **Modular Multi-Provider IaC (`deploy/terraform/`)**:
+  * **Decoupled Architecture**: Separate compute (`aws-lightsail/`, `oci/`), DNS routing (`dns-route53/`), and off-site backup storage (`backup-s3/`) into standalone stacks with independent lifecycles and isolated state files.
+  * **Provider Isolation**: `oci/` depends exclusively on `oracle/oci` (v7.32.0), while `aws-lightsail/`, `dns-route53/`, and `backup-s3/` depend on `hashicorp/aws`.
+  * **State Migration (Stage 1)**: Migrate existing monolithic `deploy/terraform/terraform.tfstate` into `aws-lightsail/`, `dns-route53/`, and `backup-s3/` with `terraform state mv` with zero diffs and zero modifications to live AWS infrastructure.
+* **Unified OCI Compute Stack (`deploy/terraform/oci/`) (Stage 2)**:
+  * Support both OCI Always Free (`$0/mo` defaults: Ampere Altra ARM64 `VM.Standard.A1.Flex`, 2 OCPUs, 12 GB RAM, 50 GB boot volume) and Paid shapes via `terraform.tfvars`.
+  * Provision dedicated VCN (`10.0.0.0/16`), Internet Gateway, Route Table, Subnet (`10.0.1.0/24`), and Security List (SSH 22, HTTP 80, HTTPS 443 TCP & HTTP/3 QUIC UDP, ICMP Path MTU).
+  * Dynamic Canonical Ubuntu 24.04 image discovery filtered by shape architecture (`aarch64` vs `x86_64`) with `lifecycle { ignore_changes }` on image OCID and user_data.
+  * Persistent Reserved Public IPv4 address (`oci_core_public_ip`) with `$0.00/mo` allocation.
+  * Cloud-init bootstrap (`templates/user-data.sh.tftpl`): automated 2 GB swapfile, fail2ban SSH jail, Docker Engine + Compose plugin, and host `iptables` rules opening ports 80/443 before the default OCI Ubuntu `REJECT` rule.
+* **Production Live Cutover (Stage 3)**:
+  * Pre-stage OCI instance (`<OCI_STATIC_IP>` in `us-ashburn-1`): clone repo, transfer `deploy/.env`, pre-build containers (`deploy-backend`, `deploy-caddy`), and initialize MySQL 8.4 container.
+  * Execute consistent database backup on Lightsail (`admin@<LIGHTSAIL_STATIC_IP>`), stream dump to OCI, and restore via `./deploy/restore.sh` (validated 9 categories, 16 feeds, 2,508 articles, and Flyway migrations 3–5).
+  * Update Route 53 DNS `A` record (`dns-route53/terraform.tfvars`) to `target_ip = "<OCI_STATIC_IP>"`.
+  * Verify automated ACME HTTP-01 Let's Encrypt TLS issuance in Caddy (`CN=marginalia.nobudev7.com`).
+  * Configure automated daily backups via `systemd.timer` (`marginalia-backup.timer` scheduled at 02:00 UTC).
+  * Retain idle Lightsail VM for 24–48h as rollback safety net before `terraform destroy`.
+
+### Verification Checklist
+- [x] State separation: Migrated 10 resources across `aws-lightsail/`, `dns-route53/`, and `backup-s3/` with `0 added, 0 changed, 0 destroyed` on `terraform plan`.
+- [x] OCI stack validation: `terraform fmt -check` and `terraform validate` succeeded on `deploy/terraform/oci`.
+- [x] Image resolution: Dynamic query auto-selected `Canonical-Ubuntu-24.04-aarch64-2026.01.21-0` for Ampere ARM shape.
+- [x] Private IP query fix: Removed conflicting `ip_address` parameter in `data.oci_core_private_ips` (PR #33).
+- [x] Database consistency: Restored all 2,508 articles, 16 feeds, and 9 categories identically into OCI MySQL 8.4.
+- [x] Backend startup: Spring Boot 4.1.1 running on Java 25 LTS reported healthy and served `/api/auth/status`.
+- [x] TLS & DNS cutover: Route 53 updated to `<OCI_STATIC_IP>`; Caddy obtained Let's Encrypt TLS cert; HTTPS 200 OK verified via HTTP/2 curl.
+- [x] Automated backups: `marginalia-backup.timer` active and verified via `systemctl list-timers`.
+- [x] CI/CD: PR #32 and PR #33 passed all backend and frontend GitHub Actions CI checks before merge.
+
+
 
