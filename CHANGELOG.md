@@ -2,8 +2,9 @@
 
 All notable changes to **Marginalia** are documented in this file.
 
-## [Unreleased]
+## [0.3.0] - 2026-11-08
 
+- `e3f6fd1` docs: record OCI migration in dev-log and changelog, sanitize IP references (#31) (#34)
 - `30779eb` fix(deploy): remove conflicting ip_address query parameter in oci_core_private_ips (#31) (#33)
 - `4ad84f0` feat(deploy): modularize Terraform stacks and add Oracle Cloud (OCI) support (#31) (#32)
 - `a908a95` feat(crawler): fallback to Open Graph (og:image / twitter:image) thumbnails (#29) (#30)
