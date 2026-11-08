@@ -149,8 +149,7 @@ data "oci_core_vnic_attachments" "marginalia" {
 }
 
 data "oci_core_private_ips" "marginalia" {
-  vnic_id    = data.oci_core_vnic_attachments.marginalia.vnic_attachments[0].vnic_id
-  ip_address = oci_core_instance.marginalia.private_ip
+  vnic_id = data.oci_core_vnic_attachments.marginalia.vnic_attachments[0].vnic_id
 }
 
 resource "oci_core_public_ip" "marginalia" {
