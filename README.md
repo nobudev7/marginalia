@@ -7,117 +7,149 @@
 [![Spring Boot 4.1](https://img.shields.io/badge/Spring_Boot-4.1-6DB33F?logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
 [![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev/)
 
-A private, self-hosted RSS reader web application designed for seamless, distraction-free reading across desktop and mobile devices.
+A refined, private RSS reader designed for focused, distraction-free reading across desktop and mobile.
 
-## Goal & Direction
-
-Marginalia is designed to provide a clean, personal reading experience:
-
-* **Distraction-Free Reading**: A focused reading space with article streams, categorized collections, unread count tracking, and bookmarking.
-* **Desktop & Mobile First**: A responsive web application and Progressive Web App (PWA) installable directly to mobile home screens.
-* **Architecture**:
-  * **Backend**: Java 25 & Spring Boot 4 for reliable feed ingestion, OPML processing, and scheduling.
-  * **Frontend**: React (Vite) + Tailwind CSS for a fast, responsive UI.
-  * **Database**: MySQL for structured relational storage of feeds, articles, and reading states.
-* **Private & Self-Hosted**: Single-user design with authenticated access, long-lived sessions, and containerized deployment via Docker Compose.
+![Marginalia Dashboard](docs/images/marginalia-dashboard.png)
 
 ---
 
-## Project Plan & Architecture Summary
+## Key Features
 
-### Tech Stack
-* **Frontend**: React (TypeScript, Vite), Tailwind CSS, Lucide Icons, `vite-plugin-pwa`.
-* **Backend**: Java 25 LTS, Spring Boot 4.1.x, Spring Data JPA, Spring Security (OAuth2), ROME Tools (RSS/Atom parsing).
-* **Database**: MySQL 8.x with Flyway database migrations.
-* **Deployment**: Single-node Docker Compose + Caddy (automated Let's Encrypt HTTPS) on **Oracle Cloud (OCI)** (`$0/mo` Always Free ARM or Paid) or **AWS Lightsail**.
+### 📖 Elegant, Focused Reading Experience
+- **Distraction-Free Reading Drawer**: Read articles in a clean, typography-optimized modal drawer with adjustable font sizes and comfortable line spacing.
+- **Visual Card & Compact Streams**: Switch between rich visual summary cards (with high-res thumbnails extracted from RSS enclosures or Open Graph/Twitter meta tags) and a compact list view for high-throughput scanning.
+- **Fast Navigation**: Effortlessly traverse your feeds with keyboard shortcuts (`J`/`K` navigation, `O` open, `M` toggle read, `S` star/bookmark) or intuitive **Next Feed** / **Next Folder** actions.
+- **Mark Above as Read**: Quickly triage busy feeds by marking everything above your current scroll position as read with a single click.
 
-### Key Features
-1. **Reader Interface**: Collapsible sidebar with drag-and-drop editable categories and feeds, live unread badges, stream list/card view, and reading drawer.
-2. **Feed Ingestion**: Periodic background crawler using Java 25 Virtual Threads and conditional HTTP (`ETag` / `If-Modified-Since`) to minimize bandwidth.
-3. **OPML Support**: Bulk import and export of feeds and category folders.
-4. **Security & Session**: OAuth2 single-user login restricted to an email whitelist, with persistent 60–90 day sessions.
-5. **PWA & Mobile**: Offline-capable service worker, app manifest, mobile long-press context menu, and full-screen mobile app shell.
+### 📁 Effortless Organization & Curation
+- **Drag-and-Drop Structure**: Freely reorganize category folders and individual feed subscriptions with fluid, touch-friendly drag-and-drop.
+- **Smart Title Exclusion Filters**: Automatically filter out noise, unwanted topics, or spoilers on a per-feed basis using customizable keyword/phrase exclusion rules.
+- **Live Unread Badges**: Real-time counters keep track of what's new across all categories without intrusive notifications.
+- **One-Click OPML Import & Export**: Effortlessly bring your existing subscriptions from Feedly, Inoreader, or NetNewsWire, or export your full library anytime.
 
----
+### 📱 Full-Featured Progressive Web App (PWA)
+- **Installable Everywhere**: Install Marginalia directly to your iPhone, iPad, Android, or macOS/Windows desktop as a native standalone app shell.
+- **Mobile-Optimized Touch Gestures**: Mobile long-press contextual menus, bottom navigation tabs, and dedicated gesture handling ensure a fluid mobile-first experience.
+- **Offline Resilience**: Built-in service worker caching keeps the application responsive and resilient even under intermittent connectivity.
 
-## Quickstart (Local Development)
-
-Marginalia enforces a **fail-closed security baseline** by default (requiring TLS for database traffic, secure cookies for HTTPS, and disabling dev logins). For local development on macOS/Linux, **you must activate the `dev` profile** to enable local Docker MySQL connectivity and test authentication without Google/GitHub OAuth2 credentials.
-
-### 1. Start the Local Database
-```bash
-docker compose -f compose.dev.yaml up -d
-```
-
-### 2. Start the Backend with the `dev` Profile
-```bash
-cd backend
-./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
-```
-*(Or set `SPRING_PROFILES_ACTIVE=dev` in your shell / IDE)*.
-
-### 3. Start the Frontend
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Open `http://localhost:5173` and click **"Sign in as Dev User"** to authenticate.
-
-For detailed IDE configurations and security posture rationale, see the [Local Development Guide](docs/local-development-guide.md).
+### 🔒 Privacy-First & Zero Passwords
+- **Single-User Privacy**: Your reading habits, article bookmarks, and feed subscriptions belong exclusively to you—no tracking, no telemetry, no analytics.
+- **Secure OAuth2 Authentication**: Sign in securely using your existing Google or GitHub account, protected by a strict database-backed email whitelist. No passwords to remember or leak.
+- **Persistent Sessions**: Enjoy long-lived, secure 60–90 day authenticated sessions across all your devices.
 
 ---
 
-## Production Deployment (Oracle Cloud or AWS Lightsail)
+## Technical Architecture & Craftsmanship
 
-Marginalia supports modular single-node cloud deployment on **Oracle Cloud Infrastructure (OCI)** (`$0/mo` Always Free `VM.Standard.A1.Flex` ARM or Paid shapes) or **AWS Lightsail** (~$7/mo `micro_3_0`), using Docker Compose and Caddy for automatic Let's Encrypt TLS:
+Marginalia was engineered with production reliability, high efficiency, and clean abstractions from day one:
 
-1. **Provision Infrastructure via Terraform** (see [`deploy/terraform/README.md`](deploy/terraform/README.md)):
+```text
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              Client Layer                                   │
+│            React 19 SPA + PWA Service Worker + Tailwind CSS                 │
+└──────────────────────────────────────┬──────────────────────────────────────┘
+                                       │ HTTPS / HTTP/3
+┌──────────────────────────────────────▼──────────────────────────────────────┐
+│                  Edge Reverse Proxy & TLS (Caddy v2)                         │
+│       Automated Let's Encrypt ACME Certificates + Security Headers          │
+└──────────────────────────────────────┬──────────────────────────────────────┘
+                                       │ Reverse Proxy (:8080)
+┌──────────────────────────────────────▼──────────────────────────────────────┐
+│                    Application Backend (Spring Boot 4.1)                    │
+│   • Java 25 LTS with Virtual Threads for concurrent feed crawling           │
+│   • ROME Tools parser with auto-channel title detection & HTML normalization│
+│   • Conditional HTTP fetching (ETag / If-Modified-Since) for low bandwidth  │
+│   • Spring Security OAuth2 (Google/GitHub) + Email Whitelist Enforcement    │
+└──────────────────────────────────────┬──────────────────────────────────────┘
+                                       │ JDBC Connection Pool (HikariCP)
+┌──────────────────────────────────────▼──────────────────────────────────────┐
+│                       Data Storage (MySQL 8.4 LTS)                          │
+│     Flyway automated schema migrations • ACID relational consistency        │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### ⚡ Performance & Resource Efficiency
+- **Java 25 Virtual Threads**: Ingests and parses dozens of external RSS/Atom feeds concurrently using lightweight virtual threads without blocking operating system thread resources.
+- **Smart Bandwidth Conservation**: The crawler engine automatically respects HTTP `304 Not Modified`, `ETag`, and `If-Modified-Since` cache headers, minimizing unnecessary network traffic and host CPU cycles.
+- **Fail-Closed Security**: Configured to fail safely by default—mandating TLS database connections, secure HTTPS cookie attributes, and sanitized user input across all endpoints.
+
+### ☁️ Cloud Portability & Modular Infrastructure (Terraform)
+Marginalia features a **modular, multi-provider Infrastructure as Code (IaC)** design under [`deploy/terraform/`](deploy/terraform/):
+- **Zero-Cost Deployment on Oracle Cloud (OCI)**: Run compute for `$0.00/mo` on OCI's Always Free Ampere Altra ARM64 architecture (`VM.Standard.A1.Flex`, 2 OCPUs, 12 GB RAM) with dedicated VCN and Reserved Static Public IP.
+- **AWS Lightsail Compatible**: Alternative turn-key compute stack on AWS Lightsail (~$7/mo).
+- **Decoupled DNS & Cross-Cloud Disaster Recovery**: Independent Route 53 DNS routing and automated daily database snapshots synced to encrypted AWS S3 buckets (`backup-s3/`). If compute ever moves or fails, your data remains completely safe.
+
+---
+
+## Getting Started
+
+### Local Development (Quickstart)
+Marginalia includes a dedicated `dev` profile that enables instantaneous local testing without needing OAuth2 cloud credentials:
+
+1. **Clone the repository:**
    ```bash
-   # Choose your compute provider: deploy/terraform/oci OR deploy/terraform/aws-lightsail
-   cd deploy/terraform/oci
-   cp terraform.tfvars.example terraform.tfvars
-   terraform init && terraform apply
+   git clone https://github.com/nobudev7/marginalia.git
+   cd marginalia
    ```
-   *(Optional standalone stacks in `deploy/terraform/dns-route53/` and `deploy/terraform/backup-s3/` automate Route 53 DNS routing and encrypted S3 off-site backups independently of compute.)*
-2. **Configure & Launch on Host**:
-   SSH into the instance, configure production secrets in `deploy/.env`, and launch containers:
+
+2. **Start the local database:**
+   ```bash
+   docker compose -f compose.dev.yaml up -d
+   ```
+
+3. **Start the backend:**
+   ```bash
+   cd backend
+   ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
+   ```
+
+4. **Start the frontend:**
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
+
+5. Open [http://localhost:5173](http://localhost:5173) and click **"Sign in as Dev User"** to jump straight into the reader.
+
+*For full details on development profiles and test accounts, see the [Local Development Guide](docs/local-development-guide.md).*
+
+---
+
+## Production Deployment
+
+Marginalia is packaged for one-command containerized production deployment using Docker Compose and Caddy:
+
+1. **Provision Cloud Infrastructure (Terraform)**:
+   Follow the guide in [`deploy/terraform/README.md`](deploy/terraform/README.md) to launch on **Oracle Cloud (Always Free ARM)** or **AWS Lightsail**.
+2. **Launch Application Containers**:
    ```bash
    cd /opt/marginalia/deploy
    cp .env.example .env && chmod 600 .env
-   # Edit .env with your domain, database passwords, and OAuth2 credentials
-   docker compose -f compose.yaml up -d --build
+   # Populate your domain and OAuth2 credentials
+   docker compose up -d --build
    ```
-3. **Schedule Automated Backups**:
-   Enable the systemd timer for non-blocking daily backups at 02:00 UTC:
+3. **Automate Daily Backups**:
    ```bash
    sudo systemctl enable --now marginalia-backup.timer
    ```
 
-For complete step-by-step instructions, DNS routing, and disaster recovery procedures, see the [Production Deployment Guide](docs/deployment-guide.md).
+*For complete operational procedures, SSL automation, and DNS setup, see the [Production Deployment Guide](docs/deployment-guide.md).*
 
 ---
 
-## Documentation
+## Documentation & Guides
 
-* [Production Deployment Guide](docs/deployment-guide.md) — Complete operations runbook for Oracle Cloud (OCI), AWS Lightsail, modular Terraform stacks, and Caddy TLS.
-* [Production Orchestration Guide](docs/production-orchestration-verification.md) — Docker Compose architecture, MySQL memory tuning, and cascading healthchecks.
-* [Backup & Disaster Recovery Guide](docs/backup-restore-verification.md) — Hot backup script, systemd timer / cron scheduling, and restore verification runbook.
-* [Reverse Proxy & TLS Guide](docs/reverse-proxy-tls-verification.md) — Caddy configuration, ACME certificate provisioning, and HTTP security headers.
-* [OAuth2 Setup Guide](docs/oauth2-setup-guide.md) — Step-by-step Google and GitHub OAuth2 configuration.
-* [Local Development Guide](docs/local-development-guide.md) — Activating the `dev` profile, safe defaults, and testing dev-login.
-* [Email Whitelist Administration Guide](docs/whitelist-admin-guide.md) — Managing access, safety measures, and admin REST endpoints.
-* [Future Expansion to Public Service (Path B)](docs/notes/future-expansion-public-service.md) — Technical migration plan for global feed deduplication and multi-user scaling.
-* [Changelog](CHANGELOG.md) — Release history and commit summaries.
-* [Development Log](docs/notes/dev-log.md) — Detailed changelog, architectural decisions, and verification records.
+- [Production Deployment Guide](docs/deployment-guide.md) — Comprehensive guide for OCI, AWS Lightsail, Terraform, and Caddy TLS.
+- [Production Orchestration Guide](docs/production-orchestration-verification.md) — Docker Compose architecture, MySQL memory tuning, and cascading healthchecks.
+- [Backup & Disaster Recovery Guide](docs/backup-restore-verification.md) — Hot backups, S3 synchronization, and restore testing.
+- [OAuth2 Setup Guide](docs/oauth2-setup-guide.md) — Google and GitHub OAuth2 configuration walkthrough.
+- [Email Whitelist Administration Guide](docs/whitelist-admin-guide.md) — Access control, administration, and safety rules.
+- [Changelog](CHANGELOG.md) — Release notes and version history.
+- [Development Log](docs/notes/dev-log.md) — Architectural decisions, engineering log, and verification records.
 
 ---
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
-
-
-
-
+This project is open source and licensed under the [MIT License](LICENSE).
