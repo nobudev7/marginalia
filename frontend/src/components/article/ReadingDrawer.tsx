@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { 
   X, 
+  ArrowLeft,
   ChevronLeft, 
   ChevronRight, 
   Bookmark, 
@@ -50,6 +51,25 @@ export function ReadingDrawer({
   const autoMarkedIdsRef = useRef<Set<number>>(new Set());
   const [showShortcutsHelp, setShowShortcutsHelp] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  // Mobile bottom bar: visible at rest, hides while scrolling down to read,
+  // reappears on scroll-up, near the top, or near the end of the article.
+  const [showMobileBar, setShowMobileBar] = useState(true);
+  const lastScrollTopRef = useRef(0);
+
+  const handleContentScroll = () => {
+    const el = contentRef.current;
+    if (!el) return;
+    const st = el.scrollTop;
+    const nearBottom = el.scrollHeight - st - el.clientHeight < 80;
+    if (st < 48 || nearBottom) {
+      setShowMobileBar(true);
+    } else if (st > lastScrollTopRef.current + 6) {
+      setShowMobileBar(false);
+    } else if (st < lastScrollTopRef.current - 6) {
+      setShowMobileBar(true);
+    }
+    lastScrollTopRef.current = st;
+  };
 
   // Determine active article's position in stream for next/previous navigation
   const currentIndex = useMemo(() => {
@@ -130,6 +150,8 @@ export function ReadingDrawer({
     if (contentRef.current) {
       contentRef.current.scrollTop = 0;
     }
+    lastScrollTopRef.current = 0;
+    setShowMobileBar(true);
   }, [article?.id]);
 
   // Lock body scroll when drawer is open
@@ -195,8 +217,9 @@ export function ReadingDrawer({
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 rounded-lg text-ink-500 hover:text-ink-900 hover:bg-paper-200 transition-colors cursor-pointer"
+              className="p-1.5 min-w-11 min-h-11 inline-flex items-center justify-center rounded-lg text-ink-500 hover:text-ink-900 hover:bg-paper-200 transition-colors cursor-pointer"
               title="Close drawer (Esc)"
+              aria-label="Close article"
             >
               <X className="w-5 h-5" />
             </button>
@@ -374,7 +397,8 @@ export function ReadingDrawer({
         {/* Scrollable Article Content Body */}
         <div
           ref={contentRef}
-          className="flex-1 overflow-y-auto px-6 sm:px-12 py-8 max-w-2xl mx-auto w-full selection:bg-amberAccent-100 selection:text-amberAccent-900"
+          onScroll={handleContentScroll}
+          className="flex-1 overflow-y-auto px-6 sm:px-12 pt-8 pb-28 md:pb-8 max-w-2xl mx-auto w-full selection:bg-amberAccent-100 selection:text-amberAccent-900"
         >
           {/* Metadata Row */}
           <div className="flex items-center space-x-2 text-xs text-ink-500 mb-4 flex-wrap gap-y-1">
@@ -459,6 +483,80 @@ export function ReadingDrawer({
               <kbd className="px-1 py-0.5 rounded bg-paper-200 text-ink-600">Esc</kbd> to close
             </div>
           </footer>
+        </div>
+
+        {/* Mobile Bottom Action Bar (mobile only): thumb-reach Back / Prev / Next / Save.
+            Mirrors the AppLayout MobileBottomNav styling. Slides away while scrolling
+            down to read; returns on scroll-up, at the top, and near the end. */}
+        <div
+          className={`md:hidden absolute inset-x-0 bottom-0 z-20 bg-paper-50/95 backdrop-blur-md border-t border-paper-300 pb-safe shadow-md transition-transform duration-200 ${
+            showMobileBar ? 'translate-y-0' : 'translate-y-full pointer-events-none'
+          }`}
+          aria-hidden={!showMobileBar}
+        >
+          <div className="flex items-stretch h-14 px-2">
+            {/* Back to list (close) */}
+            <button
+              type="button"
+              onClick={onClose}
+              tabIndex={showMobileBar ? 0 : -1}
+              className="flex items-center gap-1 px-3 min-w-24 rounded-lg text-ink-800 active:bg-paper-200 transition-colors cursor-pointer"
+              aria-label="Back to article list"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              <span className="text-sm font-semibold">Back</span>
+            </button>
+
+            <div className="flex-1" />
+
+            {/* Previous article */}
+            <button
+              type="button"
+              onClick={handlePrev}
+              disabled={!hasPrev}
+              tabIndex={showMobileBar ? 0 : -1}
+              className="flex items-center justify-center w-12 rounded-lg text-ink-600 active:bg-paper-200 disabled:opacity-30 transition-colors cursor-pointer disabled:cursor-not-allowed"
+              aria-label="Previous article"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+
+            {/* Position indicator */}
+            {currentIndex !== -1 && (
+              <span className="flex items-center text-[11px] font-mono text-ink-400 px-0.5">
+                {currentIndex + 1} / {articles.length}
+              </span>
+            )}
+
+            {/* Next article */}
+            <button
+              type="button"
+              onClick={handleNext}
+              disabled={!hasNext}
+              tabIndex={showMobileBar ? 0 : -1}
+              className="flex items-center justify-center w-12 rounded-lg text-ink-600 active:bg-paper-200 disabled:opacity-30 transition-colors cursor-pointer disabled:cursor-not-allowed"
+              aria-label="Next article"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+
+            {/* Save / bookmark */}
+            <button
+              type="button"
+              onClick={handleToggleSave}
+              tabIndex={showMobileBar ? 0 : -1}
+              className={`flex items-center justify-center w-12 rounded-lg active:bg-paper-200 transition-colors cursor-pointer ${
+                article.isSaved ? 'text-amberAccent-800' : 'text-ink-600'
+              }`}
+              aria-label={article.isSaved ? 'Remove bookmark' : 'Save bookmark'}
+            >
+              <Bookmark
+                className={`w-5 h-5 ${
+                  article.isSaved ? 'fill-amberAccent-600 text-amberAccent-700' : ''
+                }`}
+              />
+            </button>
+          </div>
         </div>
       </div>
     </div>
