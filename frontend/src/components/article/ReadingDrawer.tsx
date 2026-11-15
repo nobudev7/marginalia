@@ -109,6 +109,7 @@ export function ReadingDrawer({
   const handleOpenOriginal = () => {
     if (article?.articleUrl) {
       window.open(article.articleUrl, '_blank', 'noopener,noreferrer');
+      onClose();
     }
   };
 
@@ -469,6 +470,7 @@ export function ReadingDrawer({
                 href={article.articleUrl}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={onClose}
                 className="px-3.5 py-1.5 bg-amberAccent-700 hover:bg-amberAccent-800 text-paper-50 text-xs font-medium rounded-lg transition-colors shadow-2xs inline-flex items-center space-x-1.5 shrink-0 self-start sm:self-auto cursor-pointer"
               >
                 <span>Read Full Story</span>
