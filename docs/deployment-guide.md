@@ -459,7 +459,9 @@ Confirm that the backup archive has `-rw-------` (`600`) permissions and non-zer
 ## Phase 7: Day-2 Operations & Maintenance
 
 ### 1. Updating Application Code
-When deploying updates from git:
+Merges to `main` touching application or Compose files deploy automatically via [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml) (see the [CI/CD & Automated Deployment Guide](ci-cd-guide.md) for ruleset and SSH secret setup).
+
+To deploy updates manually on the host:
 
 ```bash
 cd /opt/marginalia

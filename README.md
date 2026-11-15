@@ -141,6 +141,7 @@ Marginalia is packaged for one-command containerized production deployment using
 ## Documentation & Guides
 
 - [Production Deployment Guide](docs/deployment-guide.md) — Comprehensive guide for OCI, AWS Lightsail, Terraform, and Caddy TLS.
+- [CI/CD & Automated Deployment Guide](docs/ci-cd-guide.md) — Branch rulesets, GitHub Actions CI, and automated production deployment workflow.
 - [Production Orchestration Guide](docs/production-orchestration-verification.md) — Docker Compose architecture, MySQL memory tuning, and cascading healthchecks.
 - [Backup & Disaster Recovery Guide](docs/backup-restore-verification.md) — Hot backups, S3 synchronization, and restore testing.
 - [OAuth2 Setup Guide](docs/oauth2-setup-guide.md) — Google and GitHub OAuth2 configuration walkthrough.
