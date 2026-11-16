@@ -307,7 +307,7 @@ export function ArticleCard({
                   e.stopPropagation();
                   onToggleSave(article.id, article.isSaved);
                 }}
-                className={`px-2.5 py-1 rounded-lg text-xs font-medium flex items-center space-x-1.5 transition-colors ${
+                className={`px-3.5 py-2 min-w-11 min-h-11 justify-center sm:px-2.5 sm:py-1 sm:min-w-0 sm:min-h-0 rounded-lg text-xs font-medium flex items-center space-x-1.5 transition-colors ${
                   article.isSaved
                     ? 'text-amberAccent-800 bg-amberAccent-100 hover:bg-amberAccent-200'
                     : 'text-ink-500 hover:text-amberAccent-700 hover:bg-paper-200/60'
@@ -315,7 +315,7 @@ export function ArticleCard({
                 title={article.isSaved ? 'Remove bookmark' : 'Save for later'}
               >
                 <Bookmark
-                  className={`w-3.5 h-3.5 ${
+                  className={`w-[18px] h-[18px] sm:w-3.5 sm:h-3.5 ${
                     article.isSaved ? 'fill-amberAccent-600 text-amberAccent-700' : 'text-ink-400'
                   }`}
                 />
@@ -330,7 +330,12 @@ export function ArticleCard({
               href={article.articleUrl}
               target="_blank"
               rel="noreferrer"
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (!article.isRead) {
+                  onToggleRead(article.id, article.isRead);
+                }
+              }}
               className="p-1.5 text-ink-400 hover:text-ink-800 hover:bg-paper-200/70 rounded-lg transition-colors flex items-center space-x-1"
               title="Open original article in new tab"
             >
