@@ -644,7 +644,11 @@ export function ArticleStream({
             </div>
 
             <p className="text-[11px] font-mono text-ink-400">
-              Showing {articles.length} of {totalElements} articles
+              {/* Clamp the shown count: the list and the total come from
+                  different page responses, and the set behind the stream can
+                  shrink between loads (e.g. articles read in an unread-only
+                  stream). Never render "Showing 20 of 16 articles". */}
+              Showing {Math.min(articles.length, totalElements)} of {totalElements} articles
             </p>
           </div>
         </div>

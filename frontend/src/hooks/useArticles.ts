@@ -106,39 +106,6 @@ export function useArticles({ filter, pageSize = 20, unreadOnly = false, onUnrea
     };
   }, [buildUrl]);
 
-  // Load next page
-  const loadMore = useCallback(async () => {
-    if (loading || loadingMore || page + 1 >= totalPages) {
-      return;
-    }
-
-    setLoadingMore(true);
-    try {
-      const nextPage = page + 1;
-      const url = buildUrl(nextPage);
-      const res = await fetch(url, { credentials: 'include' });
-
-      if (!res.ok) {
-        throw new Error(`Failed to load more articles (HTTP ${res.status})`);
-      }
-
-      const data: PageResponse<ArticleDto> = await res.json();
-      setArticles((prev) => {
-        // Prevent duplicate article IDs if new items were ingested
-        const existingIds = new Set(prev.map((a) => a.id));
-        const newArticles = (data.content || []).filter((a) => !existingIds.has(a.id));
-        return [...prev, ...newArticles];
-      });
-      setPage(data.number);
-      setTotalPages(data.totalPages);
-      setTotalElements(data.totalElements);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load more articles');
-    } finally {
-      setLoadingMore(false);
-    }
-  }, [loading, loadingMore, page, totalPages, buildUrl]);
-
   // Refresh current view from page 0
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -163,6 +130,50 @@ export function useArticles({ filter, pageSize = 20, unreadOnly = false, onUnrea
       setLoading(false);
     }
   }, [buildUrl, onUnreadChanged]);
+
+  // Load next page
+  const loadMore = useCallback(async () => {
+    if (loading || loadingMore || page + 1 >= totalPages) {
+      return;
+    }
+
+    setLoadingMore(true);
+    try {
+      const nextPage = page + 1;
+      const url = buildUrl(nextPage);
+      const res = await fetch(url, { credentials: 'include' });
+
+      if (!res.ok) {
+        throw new Error(`Failed to load more articles (HTTP ${res.status})`);
+      }
+
+      const data: PageResponse<ArticleDto> = await res.json();
+      // Prevent duplicate article IDs if new items were ingested
+      const existingIds = new Set(articles.map((a) => a.id));
+      const newArticles = (data.content || []).filter((a) => !existingIds.has(a.id));
+
+      if (newArticles.length === 0) {
+        // The set behind this stream shrank between page loads — e.g. in an
+        // unread-only stream, articles read since page 0 left the unread set,
+        // so the next page no longer exists and the fresh total is smaller
+        // than the list already loaded. Adopting that total while keeping the
+        // stale list rendered "Showing 20 of 16 articles" and the tap
+        // appeared to do nothing. Re-sync from page 0 instead so the list
+        // and the total describe the same current set.
+        await refresh();
+        return;
+      }
+
+      setArticles((prev) => [...prev, ...newArticles]);
+      setPage(data.number);
+      setTotalPages(data.totalPages);
+      setTotalElements(data.totalElements);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to load more articles');
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loading, loadingMore, page, totalPages, buildUrl, articles, refresh]);
 
   // Optimistically toggle read status
   const toggleRead = useCallback(
